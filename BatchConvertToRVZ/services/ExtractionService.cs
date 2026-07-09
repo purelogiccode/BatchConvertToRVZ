@@ -564,6 +564,7 @@ public class ExtractionService
                 }
             };
 
+            ProcessHelper.SuppressErrorDialogs();
             process.Start();
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();

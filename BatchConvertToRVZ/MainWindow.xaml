@@ -4,6 +4,7 @@
         Title="Batch Convert to RVZ"
         Height="850" Width="1200" MinHeight="700" MinWidth="900"
         Closing="Window_Closing"
+        KeyDown="Window_KeyDown"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource WindowBackgroundBrush}">
     <Grid>
@@ -113,15 +114,14 @@
                                 </Grid.ColumnDefinitions>
 
                                 <!-- Left Column: General Settings -->
-                                <GroupBox Grid.Column="0" Header="General Settings" Margin="0,5,5,10" Padding="10">
+                                <Expander Grid.Column="0" Header="General Settings" Margin="0,5,5,10" Padding="10" IsExpanded="False">
                                     <StackPanel>
                                         <CheckBox x:Name="DeleteFilesCheckBox" Content="Delete original files after conversion" Margin="0,5" HorizontalAlignment="Left" ToolTip="WARNING: Permanently deletes source files after successful conversion. Use with caution!" />
-
                                     </StackPanel>
-                                </GroupBox>
+                                </Expander>
 
                                 <!-- Right Column: Compression Settings -->
-                                <GroupBox Grid.Column="1" Header="Compression Settings" Margin="5,5,0,10" Padding="10">
+                                <Expander Grid.Column="1" Header="Compression Settings" Margin="5,5,0,10" Padding="10" IsExpanded="False">
                                     <StackPanel>
                                         <Grid Margin="0,0,0,5">
                                             <Grid.ColumnDefinitions>
@@ -168,7 +168,7 @@
                                             </ComboBox>
                                         </Grid>
                                     </StackPanel>
-                                </GroupBox>
+                                </Expander>
                             </Grid>
 
                             <Label Grid.Row="3" Content="Select Files to Convert:" Margin="0,5,0,0" FontWeight="Bold" ToolTip="List of files to convert. Check a file to include it in the batch." />
@@ -216,13 +216,13 @@
                                 <Button x:Name="BrowseVerifyFolderButton" Grid.Column="2" Content="Browse..." Click="BrowseVerifyFolderButton_Click" Style="{StaticResource ActionButtonStyle}" ToolTip="Browse for the folder containing RVZ files to verify" />
                             </Grid>
 
-                            <GroupBox Grid.Row="1" Header="General Settings" Margin="0,5,0,10" Padding="10">
+                            <Expander Grid.Row="1" Header="General Settings" Margin="0,5,0,10" Padding="10" IsExpanded="False">
                                 <StackPanel>
                                     <CheckBox x:Name="MoveFailedCheckBox" Content="Move failed RVZ files to '_Failed' subfolder" Margin="0,5" HorizontalAlignment="Left" IsChecked="False" ToolTip="Move files that fail verification to a separate folder" />
                                     <CheckBox x:Name="MoveSuccessCheckBox" Content="Move successful RVZ files to '_Success' subfolder" Margin="0,5" HorizontalAlignment="Left" IsChecked="False" ToolTip="Move successfully verified files to a separate folder" />
                                     <CheckBox x:Name="IncludeSubfoldersVerifyCheckBox" Content="Include subfolders" Margin="0,5" HorizontalAlignment="Left" IsChecked="False" ToolTip="Search for RVZ files in subfolders as well" Checked="IncludeSubfoldersVerify_Changed" Unchecked="IncludeSubfoldersVerify_Changed" />
                                 </StackPanel>
-                            </GroupBox>
+                            </Expander>
 
                             <Label Grid.Row="2" Content="Select Files to Verify:" Margin="0,5,0,0" FontWeight="Bold" ToolTip="List of RVZ files to verify. Check a file to include it in the batch." />
                             <Grid Grid.Row="3" Margin="0,5" VerticalAlignment="Stretch">
@@ -282,7 +282,7 @@
                                 <Button x:Name="BrowseExtractOutputButton" Grid.Column="2" Content="Browse..." Click="BrowseExtractOutputButton_Click" Style="{StaticResource ActionButtonStyle}" ToolTip="Browse for the output folder where extracted files will be saved" />
                             </Grid>
 
-                            <GroupBox Grid.Row="2" Header="General Settings" Margin="0,5,0,10" Padding="10">
+                            <Expander Grid.Row="2" Header="General Settings" Margin="0,5,0,10" Padding="10" IsExpanded="False">
                                 <StackPanel>
                                     <CheckBox x:Name="DeleteExtractedFilesCheckBox" Content="Delete original RVZ files after extraction" Margin="0,5" HorizontalAlignment="Left" ToolTip="WARNING: Permanently deletes source RVZ files after successful extraction. Use with caution!" />
                                     <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
@@ -295,7 +295,7 @@
                                         </ComboBox>
                                     </StackPanel>
                                 </StackPanel>
-                            </GroupBox>
+                            </Expander>
 
                             <Label Grid.Row="3" Content="Select Files to Extract:" Margin="0,5,0,0" FontWeight="Bold" ToolTip="List of files to extract. Check a file to include it in the batch." />
                             <Grid Grid.Row="4" Margin="0,5" VerticalAlignment="Stretch">

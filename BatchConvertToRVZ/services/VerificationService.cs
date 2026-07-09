@@ -171,6 +171,7 @@ public class VerificationService
             process.OutputDataReceived += outputHandler;
             process.ErrorDataReceived += errorHandler;
 
+            ProcessHelper.SuppressErrorDialogs();
             process.Start();
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();

@@ -419,6 +419,7 @@ public class ConversionService
                 }
             };
 
+            ProcessHelper.SuppressErrorDialogs();
             process.Start();
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();

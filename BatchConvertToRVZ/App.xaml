@@ -16,7 +16,7 @@
         <!-- ==================== TERMINAL COLORS ==================== -->
         <SolidColorBrush x:Key="TerminalBackgroundBrush" Color="#0a0a0a"/>
         <SolidColorBrush x:Key="TerminalBorderBrush" Color="#1a1a1a"/>
-        <SolidColorBrush x:Key="TerminalForegroundBrush" Color="#39FF14"/>
+        <SolidColorBrush x:Key="TerminalForegroundBrush" Color="#ffffff"/>
         <SolidColorBrush x:Key="TerminalSelectedBrush" Color="#2a2a2a"/>
 
         <!-- ==================== WINDOW & BACKGROUND COLORS ==================== -->
@@ -50,9 +50,9 @@
         <SolidColorBrush x:Key="PrimaryAccentDarkBrush" Color="#008ba3"/>
 
         <!-- Secondary accent - Soft Green (harmonizes with terminal) -->
-        <SolidColorBrush x:Key="SecondaryAccentBrush" Color="#4caf50"/>
-        <SolidColorBrush x:Key="SecondaryAccentHoverBrush" Color="#66bb6a"/>
-        <SolidColorBrush x:Key="SecondaryAccentDarkBrush" Color="#388e3c"/>
+        <SolidColorBrush x:Key="SecondaryAccentBrush" Color="#00bcd4"/>
+        <SolidColorBrush x:Key="SecondaryAccentHoverBrush" Color="#00e5ff"/>
+        <SolidColorBrush x:Key="SecondaryAccentDarkBrush" Color="#008ba3"/>
 
         <!-- ==================== BUTTON COLORS ==================== -->
         <!-- Action Button (Teal) -->
@@ -61,24 +61,24 @@
         <SolidColorBrush x:Key="ActionButtonPressedBrush" Color="#008ba3"/>
 
         <!-- Start/Success Button (Green - harmonizes with terminal) -->
-        <SolidColorBrush x:Key="StartButtonBrush" Color="#4caf50"/>
-        <SolidColorBrush x:Key="StartButtonHoverBrush" Color="#66bb6a"/>
-        <SolidColorBrush x:Key="StartButtonPressedBrush" Color="#388e3c"/>
+        <SolidColorBrush x:Key="StartButtonBrush" Color="#00bcd4"/>
+        <SolidColorBrush x:Key="StartButtonHoverBrush" Color="#00e5ff"/>
+        <SolidColorBrush x:Key="StartButtonPressedBrush" Color="#008ba3"/>
 
         <!-- Cancel/Error Button (Soft Red) -->
-        <SolidColorBrush x:Key="CancelButtonBrush" Color="#f85149"/>
-        <SolidColorBrush x:Key="CancelButtonHoverBrush" Color="#ff6b6b"/>
-        <SolidColorBrush x:Key="CancelButtonPressedBrush" Color="#da3633"/>
+        <SolidColorBrush x:Key="CancelButtonBrush" Color="#00bcd4"/>
+        <SolidColorBrush x:Key="CancelButtonHoverBrush" Color="#00e5ff"/>
+        <SolidColorBrush x:Key="CancelButtonPressedBrush" Color="#008ba3"/>
 
         <!-- About/Info Button (Purple - complementary to teal) -->
-        <SolidColorBrush x:Key="AboutButtonBrush" Color="#7c4dff"/>
-        <SolidColorBrush x:Key="AboutButtonHoverBrush" Color="#9e7bff"/>
-        <SolidColorBrush x:Key="AboutButtonPressedBrush" Color="#5e35b1"/>
+        <SolidColorBrush x:Key="AboutButtonBrush" Color="#00bcd4"/>
+        <SolidColorBrush x:Key="AboutButtonHoverBrush" Color="#00e5ff"/>
+        <SolidColorBrush x:Key="AboutButtonPressedBrush" Color="#008ba3"/>
 
         <!-- Exit Button (Slate Gray) -->
-        <SolidColorBrush x:Key="ExitButtonBrush" Color="#607d8b"/>
-        <SolidColorBrush x:Key="ExitButtonHoverBrush" Color="#78909c"/>
-        <SolidColorBrush x:Key="ExitButtonPressedBrush" Color="#455a64"/>
+        <SolidColorBrush x:Key="ExitButtonBrush" Color="#00bcd4"/>
+        <SolidColorBrush x:Key="ExitButtonHoverBrush" Color="#00e5ff"/>
+        <SolidColorBrush x:Key="ExitButtonPressedBrush" Color="#008ba3"/>
 
         <!-- Disabled State -->
         <SolidColorBrush x:Key="DisabledButtonBrush" Color="#3d454f"/>
@@ -97,10 +97,10 @@
 
         <!-- ==================== OVERLAY & EFFECTS ==================== -->
         <SolidColorBrush x:Key="OverlayBackgroundBrush" Color="#CC000000"/>
-        <Color x:Key="TerminalGlowColor">#39FF14</Color>
+        <Color x:Key="TerminalGlowColor">#ffffff</Color>
 
         <!-- ==================== BUTTON TEXT COLORS ==================== -->
-        <SolidColorBrush x:Key="ButtonTextDarkBrush" Color="#121518"/>
+        <SolidColorBrush x:Key="ButtonTextDarkBrush" Color="#000000"/>
 
         <!-- ==================== DEFAULT STYLE TARGET TYPES ==================== -->
 
@@ -140,7 +140,6 @@
 
         <!-- Default TextBlock Style -->
         <Style TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
@@ -269,6 +268,78 @@
                                                    SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
                             </Grid>
                         </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Default Expander Style -->
+        <Style TargetType="Expander">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
+            <Setter Property="Padding" Value="10"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Expander">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition x:Name="ContentRow" Height="0"/>
+                                </Grid.RowDefinitions>
+                                <ToggleButton x:Name="HeaderToggle"
+                                              IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                              Content="{TemplateBinding Header}"
+                                              HorizontalAlignment="Stretch"
+                                              Background="Transparent"
+                                              BorderThickness="0"
+                                              Padding="{TemplateBinding Padding}"
+                                              Cursor="Hand">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border x:Name="HeaderBorder" Background="Transparent" Padding="0">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock x:Name="Arrow" Grid.Column="0" Text="▶" FontSize="10"
+                                                               Foreground="{StaticResource PrimaryAccentBrush}"
+                                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <ContentPresenter Grid.Column="1"
+                                                                      VerticalAlignment="Center"
+                                                                      RecognizesAccessKey="True"
+                                                                      TextBlock.Foreground="{StaticResource HeaderTextBrush}"/>
+                                                </Grid>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="Arrow" Property="Text" Value="▼"/>
+                                                </Trigger>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="HeaderBorder" Property="Background" Value="{StaticResource CardBackgroundHoverBrush}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                </ToggleButton>
+                                <Border x:Name="ContentBorder" Grid.Row="1"
+                                        Background="Transparent"
+                                        Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter/>
+                                </Border>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="True">
+                                <Setter TargetName="ContentRow" Property="Height" Value="{Binding DesiredHeight, ElementName=ContentBorder, FallbackValue=Auto}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -477,7 +548,7 @@
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Foreground" Value="#121518"/>
+            <Setter Property="Foreground" Value="#000000"/>
             <Setter Property="Background" Value="{StaticResource ActionButtonBrush}"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
@@ -489,7 +560,8 @@
                                  BorderThickness="0">
                             <ContentPresenter HorizontalAlignment="Center"
                                                VerticalAlignment="Center"
-                                               Margin="{TemplateBinding Padding}"/>
+                                               Margin="{TemplateBinding Padding}"
+                                               TextBlock.Foreground="{TemplateBinding Foreground}"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsEnabled" Value="False">
@@ -521,7 +593,8 @@
                                  BorderThickness="0">
                             <ContentPresenter HorizontalAlignment="Center"
                                                VerticalAlignment="Center"
-                                               Margin="{TemplateBinding Padding}"/>
+                                               Margin="{TemplateBinding Padding}"
+                                               TextBlock.Foreground="{TemplateBinding Foreground}"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsEnabled" Value="False">
@@ -553,7 +626,8 @@
                                  BorderThickness="0">
                             <ContentPresenter HorizontalAlignment="Center"
                                                VerticalAlignment="Center"
-                                               Margin="{TemplateBinding Padding}"/>
+                                               Margin="{TemplateBinding Padding}"
+                                               TextBlock.Foreground="{TemplateBinding Foreground}"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsEnabled" Value="False">

@@ -31,6 +31,7 @@ public partial class MainWindow : IDisposable
     private readonly services.VerificationService _verificationService;
     private readonly services.ExtractionService _extractionService;
     private readonly services.FileService _fileService;
+    private readonly services.ScreenshotService _screenshotService;
 
     private const string GitHubApiUrl = "https://api.github.com/repos/drpetersonfernandes/BatchConvertToRVZ/releases/latest";
 
@@ -172,6 +173,9 @@ public partial class MainWindow : IDisposable
             LogMessage,
             ReportBugAsync,
             _fileService);
+        _screenshotService = new services.ScreenshotService(
+            LogMessage,
+            ReportBugAsync);
 
         LogMessage("Welcome to the Batch Convert to RVZ.");
         LogMessage("");
@@ -357,6 +361,29 @@ public partial class MainWindow : IDisposable
                 _ = Task.Delay(3000).ContinueWith(static _ => Environment.Exit(0));
             }
         });
+    }
+
+    private async void Window_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        try
+        {
+            if (e.Key != System.Windows.Input.Key.F8) return;
+
+            e.Handled = true;
+
+            try
+            {
+                await _screenshotService.CaptureWindowAsync(this);
+            }
+            catch (Exception ex)
+            {
+                await ReportBugAsync("Error during Window_KeyDown screenshot capture", ex);
+            }
+        }
+        catch (Exception ex)
+        {
+            await ReportBugAsync("Error during Window_KeyDown screenshot capture", ex);
+        }
     }
 
     private const int MaxLogLines = 5000;
@@ -927,7 +954,7 @@ public partial class MainWindow : IDisposable
         catch (Exception ex)
         {
             LogMessage($"Error during batch conversion: {ex.Message}");
-            ShowError($"Error during batch conversion: {ex.Message}");
+            await ShowMessageBoxAsync($"Error during batch conversion: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             await ReportBugAsync("Error during batch conversion operation", ex);
         }
         finally
@@ -1028,8 +1055,30 @@ public partial class MainWindow : IDisposable
         }
         else
         {
-            // Not on UI thread, use InvokeAsync
-            ShowMessageBoxAsync(message, title, buttons, icon).GetAwaiter().GetResult();
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                Window? owner = null;
+                try
+                {
+                    if (!_disposed && IsLoaded)
+                    {
+                        var helper = new System.Windows.Interop.WindowInteropHelper(this);
+                        if (helper.Handle != IntPtr.Zero)
+                        {
+                            owner = this;
+                        }
+                    }
+                }
+                catch
+                {
+                    // ignored
+                }
+
+                if (owner != null)
+                    MessageBox.Show(owner, message, title, buttons, icon);
+                else
+                    MessageBox.Show(message, title, buttons, icon);
+            });
         }
     }
 
@@ -1572,7 +1621,7 @@ public partial class MainWindow : IDisposable
         catch (Exception ex)
         {
             LogMessage($"Error during batch verification: {ex.Message}");
-            ShowError($"Error during batch verification: {ex.Message}");
+            await ShowMessageBoxAsync($"Error during batch verification: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             await ReportBugAsync("Error during batch verification operation", ex);
         }
         finally
@@ -2174,7 +2223,7 @@ public partial class MainWindow : IDisposable
         catch (Exception ex)
         {
             LogMessage($"Error during batch extraction: {ex.Message}");
-            ShowError($"Error during batch extraction: {ex.Message}");
+            await ShowMessageBoxAsync($"Error during batch extraction: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             await ReportBugAsync("Error during batch extraction operation", ex);
         }
         finally
