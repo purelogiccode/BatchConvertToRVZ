@@ -191,7 +191,7 @@ public class ExtractionServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task PerformBatchExtractionAsyncCorrupt7ZReportsWhenBothFail()
+    public async Task PerformBatchExtractionAsyncCorrupt7ZLogsCorruptMessageWhenBothFail()
     {
         var service = CreateService();
         var archivePath = CreateCorrupt7ZipArchive();

@@ -160,7 +160,7 @@ public class ConversionServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task PerformBatchConversionAsyncCorrupt7ZReportsBugWhenBothFail()
+    public async Task PerformBatchConversionAsyncCorrupt7ZLogsCorruptMessageWhenBothFail()
     {
         var service = CreateService();
         var archivePath = CreateCorrupt7ZipArchive();

@@ -149,7 +149,6 @@ public partial class App
         if (ex is IOException or TaskCanceledException or OperationCanceledException or UnauthorizedAccessException)
         {
             Log.Error(ex, "Application.DispatcherUnhandledException (recoverable)");
-            TryReportFatal("Application.DispatcherUnhandledException", ex, false);
             MessageBox.Show($"An unexpected but recoverable error occurred: {ex.Message}\n\nThe application will continue to run, but the current operation may have failed.",
                 "Recoverable Error", MessageBoxButton.OK, MessageBoxImage.Warning);
             e.Handled = true;
@@ -166,7 +165,6 @@ public partial class App
     private static void TaskScheduler_UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
     {
         Log.Error(e.Exception, "TaskScheduler.UnobservedTaskException");
-        TryReportFatal("TaskScheduler.UnobservedTaskException", e.Exception, false);
         e.SetObserved();
     }
 
