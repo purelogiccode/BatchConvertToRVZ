@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using BatchConvertToRVZ.Models;
+using Serilog;
 
 namespace BatchConvertToRVZ.services;
 
@@ -71,10 +72,8 @@ public partial class UpdateService : IDisposable
         }
         catch (Exception ex)
         {
-            // Unexpected errors should be reported for debugging
-            // Use the global exception handler through App domain
-            System.Diagnostics.Debug.WriteLine($"Unexpected error in UpdateService: {ex}");
-            throw; // Re-throw to let global handler catch and report
+            Log.Debug(ex, "Unexpected error in UpdateService: {Message}", ex.Message);
+            throw;
         }
 
         return (false, null);

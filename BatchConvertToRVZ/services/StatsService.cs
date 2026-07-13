@@ -2,6 +2,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Reflection;
+using Serilog;
 
 namespace BatchConvertToRVZ.services;
 
@@ -73,13 +74,11 @@ public class StatsService : IDisposable
         }
         catch (HttpRequestException ex)
         {
-            // Network failures are expected (offline, server down, DNS issues) - don't propagate
-            System.Diagnostics.Debug.WriteLine($"Failed to send usage stats (network): {ex.Message}");
+            Log.Debug("Failed to send usage stats (network): {Message}", ex.Message);
         }
         catch (Exception ex)
         {
-            // Log the error but don't crash the application
-            System.Diagnostics.Debug.WriteLine($"Failed to send usage stats: {ex.Message}");
+            Log.Debug("Failed to send usage stats: {Message}", ex.Message);
         }
     }
 

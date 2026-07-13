@@ -1023,7 +1023,7 @@ public partial class MainWindow : IDisposable
     private void ShowMessageBox(string message, string title, MessageBoxButton buttons, MessageBoxImage icon)
     {
         // Check if we're already on the UI thread to avoid deadlock
-        if (Application.Current.Dispatcher.CheckAccess())
+        if (Application.Current?.Dispatcher.CheckAccess() == true)
         {
             // Already on UI thread, show message box directly
             try
@@ -1058,7 +1058,7 @@ public partial class MainWindow : IDisposable
         }
         else
         {
-            Application.Current.Dispatcher.Invoke(() =>
+            Application.Current?.Dispatcher.Invoke(() =>
             {
                 Window? owner = null;
                 try

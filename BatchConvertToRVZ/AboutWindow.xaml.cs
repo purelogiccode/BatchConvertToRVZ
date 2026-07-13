@@ -62,7 +62,7 @@ public partial class AboutWindow
             }
 
             // Notify user
-            Application.Current.Dispatcher.Invoke(() =>
+            Application.Current?.Dispatcher.Invoke(() =>
             {
                 MessageBox.Show($"Unable to open link: {ex.Message}",
                     "Error", MessageBoxButton.OK, MessageBoxImage.Error);
