@@ -2,41 +2,19 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using Serilog;
 
 namespace BatchConvertToRVZ.services;
 
-/// <summary>
-/// Service responsible for verifying RVZ file integrity using DolphinTool.
-/// </summary>
 public class VerificationService
 {
-    private readonly Action<string> _logMessage;
-    private readonly Func<string, Exception?, Task> _reportBugAsync;
+    private readonly ILogger _logger;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="VerificationService"/> class.
-    /// </summary>
-    /// <param name="logMessage">Action to log messages.</param>
-    /// <param name="reportBugAsync">Function to report bugs asynchronously with optional exception.</param>
-    public VerificationService(
-        Action<string> logMessage,
-        Func<string, Exception?, Task> reportBugAsync)
+    public VerificationService(ILogger logger)
     {
-        _logMessage = logMessage;
-        _reportBugAsync = reportBugAsync;
+        _logger = logger.ForContext<VerificationService>();
     }
 
-    /// <summary>
-    /// Performs batch verification of RVZ files.
-    /// </summary>
-    /// <param name="dolphinToolPath">Path to the DolphinTool executable.</param>
-    /// <param name="files">Array of file paths to verify.</param>
-    /// <param name="moveFailed">Whether to move failed files to a subfolder.</param>
-    /// <param name="moveSuccess">Whether to move successful files to a subfolder.</param>
-    /// <param name="updateProgress">Callback to update progress.</param>
-    /// <param name="incrementSuccess">Callback to increment success count.</param>
-    /// <param name="incrementFailure">Callback to increment failure count.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task PerformBatchVerificationAsync(
         string dolphinToolPath,
         string[] files,
@@ -49,20 +27,20 @@ public class VerificationService
     {
         try
         {
-            _logMessage("Preparing for batch verification...");
+            _logger.Information("{Message:l}", "Preparing for batch verification...");
 
             var totalFilesToProcess = files.Length;
-            _logMessage($"Verifying {totalFilesToProcess} selected RVZ files.");
+            _logger.Information("{Message:l}", $"Verifying {totalFilesToProcess} selected RVZ files.");
 
             if (totalFilesToProcess == 0)
             {
-                _logMessage("No files selected for verification.");
+                _logger.Information("{Message:l}", "No files selected for verification.");
                 return;
             }
 
             var filesProcessedCount = 0;
 
-            _logMessage("Verifying files sequentially.");
+            _logger.Information("{Message:l}", "Verifying files sequentially.");
             foreach (var inputFile in files)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -92,13 +70,12 @@ public class VerificationService
         }
         catch (OperationCanceledException)
         {
-            _logMessage("Batch verification operation was canceled.");
+            _logger.Information("{Message:l}", "Batch verification operation was canceled.");
             throw;
         }
         catch (Exception ex)
         {
-            _logMessage($"Error during batch verification: {ex.Message}");
-            await _reportBugAsync("Error during batch verification operation", ex);
+            _logger.Error(ex, "Error during batch verification operation: {Message}", ex.Message);
         }
     }
 
@@ -120,7 +97,7 @@ public class VerificationService
 
         try
         {
-            _logMessage($"Verifying: {fileName}...");
+            _logger.Information("{Message:l}", $"Verifying: {fileName}...");
 
             tempWorkingDirectory = Path.Combine(Path.GetTempPath(), "BatchConvertToRVZ_DolphinTool_Temp_" + Path.GetRandomFileName());
             Directory.CreateDirectory(tempWorkingDirectory);
@@ -153,7 +130,7 @@ public class VerificationService
                 else
                 {
                     outputQueue.Enqueue(args.Data);
-                    _logMessage($"[DolphinTool] {args.Data}");
+                    _logger.Information("{Message:l}", $"[DolphinTool] {args.Data}");
                 }
             };
             errorHandler = (_, args) =>
@@ -165,7 +142,7 @@ public class VerificationService
                 else
                 {
                     outputQueue.Enqueue(args.Data);
-                    _logMessage($"[DolphinTool ERROR] {args.Data}");
+                    _logger.Information("{Message:l}", $"[DolphinTool ERROR] {args.Data}");
                 }
             };
             process.OutputDataReceived += outputHandler;
@@ -186,7 +163,7 @@ public class VerificationService
             if (process.ExitCode == 0 && output.Contains("Problems Found: No"))
             {
                 verificationResult = true;
-                _logMessage($"Verification successful: {fileName}");
+                _logger.Information("{Message:l}", $"Verification successful: {fileName}");
 
                 if (moveSuccess)
                 {
@@ -195,9 +172,9 @@ public class VerificationService
             }
             else
             {
-                _logMessage($"Verification failed: {fileName}");
-                _logMessage($"Exit code: {process.ExitCode}");
-                _logMessage($"Output: {output}");
+                _logger.Information("{Message:l}", $"Verification failed: {fileName}");
+                _logger.Information("{Message:l}", $"Exit code: {process.ExitCode}");
+                _logger.Information("{Message:l}", $"Output: {output}");
 
                 if (moveFailed)
                 {
@@ -207,7 +184,7 @@ public class VerificationService
         }
         catch (OperationCanceledException)
         {
-            _logMessage($"Verification canceled: {fileName}");
+            _logger.Information("{Message:l}", $"Verification canceled: {fileName}");
             if (!process.HasExited)
             {
                 process.Kill(true);
@@ -215,8 +192,7 @@ public class VerificationService
         }
         catch (Exception ex)
         {
-            _logMessage($"Error verifying {fileName}: {ex.Message}");
-            await _reportBugAsync($"Error verifying file: {fileName}", ex);
+            _logger.Error(ex, "Error verifying file {FileName}: {Message}", fileName, ex.Message);
             verificationResult = false;
         }
         finally
@@ -231,7 +207,6 @@ public class VerificationService
                 process.ErrorDataReceived -= errorHandler;
             }
 
-            // Use async cleanup without blocking the thread
             if (tempWorkingDirectory != null)
             {
                 _ = Task.Run(async () => await DeleteDirectoryAsync(tempWorkingDirectory), token);
@@ -265,38 +240,31 @@ public class VerificationService
                 destinationPath = Path.Combine(subfolderPath, $"{nameWithoutExt}_{timestamp}{extension}");
             }
 
-            // Use File.Move with async support via Task.Run for cancellation
             await Task.Run(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 File.Move(sourceFilePath, destinationPath);
             }, cancellationToken);
 
-            _logMessage($"Moved {fileName} to {subfolderName} folder.");
+            _logger.Information("{Message:l}", $"Moved {fileName} to {subfolderName} folder.");
         }
         catch (OperationCanceledException)
         {
-            _logMessage($"Move file operation cancelled for {Path.GetFileName(sourceFilePath)}");
+            _logger.Information("{Message:l}", $"Move file operation cancelled for {Path.GetFileName(sourceFilePath)}");
             throw;
         }
         catch (Exception ex)
         {
-            _logMessage($"Failed to move file to {subfolderName} folder: {ex.Message}");
+            _logger.Information("{Message:l}", $"Failed to move file to {subfolderName} folder: {ex.Message}");
         }
     }
 
-    /// <summary>
-    /// Asynchronously deletes a directory and all its contents.
-    /// </summary>
-    /// <param name="path">The path of the directory to delete.</param>
-    /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task DeleteDirectoryAsync(string path)
     {
         try
         {
             if (Directory.Exists(path))
             {
-                // Use Task.Run to make the synchronous Directory.Delete async
                 await Task.Run(() => Directory.Delete(path, true));
             }
         }

@@ -1,5 +1,9 @@
+using System.Globalization;
 using System.IO.Compression;
 using BatchConvertToRVZ.services;
+using Serilog;
+using Serilog.Core;
+using Serilog.Events;
 using Xunit;
 
 namespace BatchConvertToRVZ.Tests.Services;
@@ -35,9 +39,27 @@ public class ConversionServiceTests : IDisposable
 
     private ConversionService CreateService()
     {
-        return new ConversionService(
-            msg => _logMessages.Add(msg), static (_, _) => Task.CompletedTask,
-            _fileService);
+        var logger = new LoggerConfiguration()
+            .MinimumLevel.Verbose()
+            .WriteTo.Sink(new DelegatingSink(msg => _logMessages.Add(msg)))
+            .CreateLogger();
+        return new ConversionService(logger, _fileService);
+    }
+
+    private sealed class DelegatingSink : ILogEventSink
+    {
+        private readonly Action<string> _onMessage;
+        public DelegatingSink(Action<string> onMessage)
+        {
+            _onMessage = onMessage;
+        }
+
+        public void Emit(LogEvent logEvent)
+        {
+            var sw = new StringWriter();
+            logEvent.MessageTemplate.Render(logEvent.Properties, sw, CultureInfo.InvariantCulture);
+            _onMessage(sw.ToString());
+        }
     }
 
     private string CreateTestZipArchive(string entryName, byte[]? entryContent = null)

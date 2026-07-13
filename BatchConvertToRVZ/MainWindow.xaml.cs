@@ -6,7 +6,9 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Channels;
 using System.Windows;
+using BatchConvertToRVZ.services;
 using Microsoft.Win32;
+using Serilog;
 using IDisposable = System.IDisposable;
 
 namespace BatchConvertToRVZ;
@@ -26,12 +28,12 @@ public partial class MainWindow : IDisposable
     private CancellationTokenSource _cts;
     private readonly object _ctsLock = new();
     private readonly object _closingLock = new();
-    private readonly services.UpdateService _updateService;
-    private readonly services.ConversionService _conversionService;
-    private readonly services.VerificationService _verificationService;
-    private readonly services.ExtractionService _extractionService;
-    private readonly services.FileService _fileService;
-    private readonly services.ScreenshotService _screenshotService;
+    private readonly UpdateService _updateService;
+    private readonly ConversionService _conversionService;
+    private readonly VerificationService _verificationService;
+    private readonly ExtractionService _extractionService;
+    private readonly FileService _fileService;
+    private readonly ScreenshotService _screenshotService;
 
     private const string GitHubApiUrl = "https://api.github.com/repos/drpetersonfernandes/BatchConvertToRVZ/releases/latest";
 
@@ -154,28 +156,19 @@ public partial class MainWindow : IDisposable
         InitializeComponent();
         _cts = new CancellationTokenSource();
 
-        // Start log processor
+        // Start log processor and subscribe the UI sink
         _logProcessorTask = Task.Run(ProcessLogsAsync);
+        UiLogSink.MessageLogged += EnqueueLogLine;
 
         // The BugReportService is now initialized and managed by the App class.
-        _updateService = new services.UpdateService(GitHubApiUrl);
+        _updateService = new UpdateService(GitHubApiUrl);
 
-        // Initialize service classes
-        _fileService = new services.FileService();
-        _conversionService = new services.ConversionService(
-            LogMessage,
-            ReportBugAsync,
-            _fileService);
-        _verificationService = new services.VerificationService(
-            LogMessage,
-            ReportBugAsync);
-        _extractionService = new services.ExtractionService(
-            LogMessage,
-            ReportBugAsync,
-            _fileService);
-        _screenshotService = new services.ScreenshotService(
-            LogMessage,
-            ReportBugAsync);
+        // Initialize service classes with Serilog ILogger (Warning+ auto-forwards to BugReport API)
+        _fileService = new FileService();
+        _conversionService = new ConversionService(Log.Logger, _fileService);
+        _verificationService = new VerificationService(Log.Logger);
+        _extractionService = new ExtractionService(Log.Logger, _fileService);
+        _screenshotService = new ScreenshotService(Log.Logger);
 
         LogMessage("Welcome to the Batch Convert to RVZ.");
         LogMessage("");
@@ -297,6 +290,7 @@ public partial class MainWindow : IDisposable
 
     private void MainWindow_Closed(object? sender, EventArgs e)
     {
+        UiLogSink.MessageLogged -= EnqueueLogLine;
         _ = Task.Run(Dispose);
     }
 
@@ -388,18 +382,35 @@ public partial class MainWindow : IDisposable
 
     private const int MaxLogLines = 5000;
 
-    private void LogMessage(string message)
+    /// <summary>
+    /// Called by <see cref="UiLogSink"/> for every log event. Writes the pre-formatted
+    /// line into the bounded channel so <see cref="ProcessLogsAsync"/> can batch it to the UI.
+    /// </summary>
+    private void EnqueueLogLine(string line)
     {
         if (_disposed) return;
 
         try
         {
-            _logChannel.Writer.TryWrite($"[{DateTime.Now:HH:mm:ss.fff}] {message}");
+            _logChannel.Writer.TryWrite(line);
         }
         catch (ChannelClosedException)
         {
             // Channel is closed, ignore
         }
+    }
+
+    /// <summary>
+    /// Logs a message at Information level through Serilog.
+    /// The message appears in the on-screen log viewer (via <see cref="UiLogSink"/>)
+    /// and is written to the rolling daily log file. Information-level events are NOT
+    /// forwarded to the Bug Report API.
+    /// </summary>
+    private void LogMessage(string message)
+    {
+        if (_disposed) return;
+
+        Log.Information("{Message:l}", message);
     }
 
     private async Task ProcessLogsAsync()
@@ -456,20 +467,12 @@ public partial class MainWindow : IDisposable
                     }
                     catch (Exception ex)
                     {
-                        // Silently fail if the Dispatcher is shutting down, but report critical errors
+                        // Silently fail if the Dispatcher is shutting down.
+                        // Log directly (not through the UI sink) to avoid re-entry into the
+                        // channel that is already failing.
                         if (ex is not InvalidOperationException && ex is not TaskCanceledException)
                         {
-                            _ = Task.Run(async () =>
-                            {
-                                try
-                                {
-                                    await ReportBugAsync("Error in ProcessLogsAsync Dispatcher operation", ex);
-                                }
-                                catch
-                                {
-                                    /* Silently ignore */
-                                }
-                            });
+                            Log.Error(ex, "Error in ProcessLogsAsync Dispatcher operation");
                         }
                     }
                 }
@@ -1087,27 +1090,32 @@ public partial class MainWindow : IDisposable
         ShowMessageBox(message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
     }
 
-    private static async Task ReportBugAsync(string message, Exception? exception = null)
+    /// <summary>
+    /// Reports a bug through Serilog at Error level (when an exception is provided)
+    /// or Warning level (message only). Warning+ events are automatically forwarded
+    /// to the Bug Report API by <see cref="BugReportSink"/>.
+    /// Corrupt-user-file failures should log at Information and call this.
+    /// This method always returns a completed task for backward compatibility.
+    /// </summary>
+    private static Task ReportBugAsync(string message, Exception? exception = null)
     {
         try
         {
-            if (App.BugReportServiceInstance == null) return;
-
             if (exception != null)
             {
-                // Use the exception overload for proper formatting with all required fields
-                await App.BugReportServiceInstance.SendBugReportAsync(message, exception);
+                Log.Error(exception, "{Message:l}", message);
             }
             else
             {
-                // No exception, just send the message
-                await App.BugReportServiceInstance.SendBugReportAsync(message);
+                Log.Warning("{Message:l}", message);
             }
         }
         catch
         {
             /* Silently fail reporting */
         }
+
+        return Task.CompletedTask;
     }
 
     private void ExitMenuItem_Click(object sender, RoutedEventArgs e)

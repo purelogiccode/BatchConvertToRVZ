@@ -1,7 +1,10 @@
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 using BatchConvertToRVZ.services;
+using Serilog;
+using Serilog.Events;
 
 namespace BatchConvertToRVZ;
 
@@ -25,9 +28,34 @@ public partial class App
         // Clean up old DLL files from previous versions
         CleanupOldDllFiles();
 
-        // Initialize the services
+        // Initialize the services first (BugReportService needed by Serilog sink)
         BugReportServiceInstance = new BugReportService(BugReportApiUrl, BugReportApiKey, ApplicationName);
         StatsServiceInstance = new StatsService(StatsApiUrl, StatsApiKey, StatsApplicationId);
+
+        // Bootstrap Serilog with all sinks BEFORE the UI starts so that every
+        // message emitted during construction is captured.
+        var logPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "BatchConvertToRVZ",
+            "logs",
+            "log-.txt");
+
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Debug()
+            .WriteTo.Ui(formatProvider: CultureInfo.InvariantCulture)
+            .WriteTo.BugReport(BugReportServiceInstance, LogEventLevel.Warning, CultureInfo.InvariantCulture)
+            .WriteTo.File(
+                logPath,
+                rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 14,
+                fileSizeLimitBytes: 10 * 1024 * 1024, // 10 MB
+                rollOnFileSizeLimit: true,
+                restrictedToMinimumLevel: LogEventLevel.Debug,
+                formatProvider: CultureInfo.InvariantCulture,
+                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+            .CreateLogger();
+
+        Log.Information("BatchConvertToRVZ v{Version} starting", GetType().Assembly.GetName().Version?.ToString() ?? "0.0.0");
 
         // Set up global exception handling
         AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
@@ -61,7 +89,7 @@ public partial class App
                     }
 
                     // Only report other types of exceptions that might indicate actual problems
-                    ReportException(ex, "StatsService.OnStartup", false);
+                    Log.Error(ex, "StatsService.OnStartup failed");
                 }
             }));
         }
@@ -95,72 +123,70 @@ public partial class App
         BugReportServiceInstance?.Dispose();
         StatsServiceInstance?.Dispose();
 
+        // Flush Serilog before exiting
+        Log.CloseAndFlush();
+
         // Unregister event handlers to prevent memory leaks
         AppDomain.CurrentDomain.UnhandledException -= CurrentDomain_UnhandledException;
         DispatcherUnhandledException -= App_DispatcherUnhandledException;
         TaskScheduler.UnobservedTaskException -= TaskScheduler_UnobservedTaskException;
     }
 
-    private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+    private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
     {
         if (e.ExceptionObject is Exception exception)
         {
-            ReportException(exception, "AppDomain.UnhandledException", true);
+            Log.Fatal(exception, "AppDomain.UnhandledException");
+            // Fatal: block briefly to try to send the report before the process exits
+            TryReportFatal("AppDomain.UnhandledException", exception);
         }
     }
 
-    private void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    private static void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         var ex = e.Exception;
 
-        // For critical exceptions, let the app crash rather than running in a corrupted state.
-        // IO and standard OperationCanceled are usually safe to "handle" if they bubbled up to here.
         if (ex is IOException or TaskCanceledException or OperationCanceledException or UnauthorizedAccessException)
         {
-            ReportException(ex, "Application.DispatcherUnhandledException", false);
+            Log.Error(ex, "Application.DispatcherUnhandledException (recoverable)");
+            TryReportFatal("Application.DispatcherUnhandledException", ex, false);
             MessageBox.Show($"An unexpected but recoverable error occurred: {ex.Message}\n\nThe application will continue to run, but the current operation may have failed.",
                 "Recoverable Error", MessageBoxButton.OK, MessageBoxImage.Warning);
             e.Handled = true;
         }
         else
         {
-            ReportException(ex, "Application.DispatcherUnhandledException", true);
-            // For other unknown/severe exceptions, show a final error message and let it crash to prevent data corruption
+            Log.Fatal(ex, "Application.DispatcherUnhandledException (fatal)");
+            TryReportFatal("Application.DispatcherUnhandledException", ex);
             MessageBox.Show($"A fatal error occurred and the application must close: {ex.Message}\n\nA bug report has been sent.",
                 "Fatal Error", MessageBoxButton.OK, MessageBoxImage.Error);
-
-            // We DON'T set e.Handled = true here, allowing the app to terminate
         }
     }
 
-    private void TaskScheduler_UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    private static void TaskScheduler_UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
     {
-        ReportException(e.Exception, "TaskScheduler.UnobservedTaskException", false);
+        Log.Error(e.Exception, "TaskScheduler.UnobservedTaskException");
+        TryReportFatal("TaskScheduler.UnobservedTaskException", e.Exception, false);
         e.SetObserved();
     }
 
-    private void ReportException(Exception exception, string source, bool isFatal)
+    /// <summary>
+    /// Sends a bug report directly (bypassing the Serilog sink) so that even if the
+    /// logging pipeline has already shut down the report is still delivered.
+    /// For fatal exceptions this blocks with a 5‑second timeout.
+    /// </summary>
+    private static void TryReportFatal(string source, Exception exception, bool isFatal = true)
     {
         try
         {
+            if (BugReportServiceInstance == null) return;
+
             var message = $"Error Source: {source}";
+            var reportTask = BugReportServiceInstance.SendBugReportAsync(message, exception);
 
-            // Notify developer using the exception overload for proper formatting
-            if (BugReportServiceInstance != null)
+            if (isFatal)
             {
-                var reportTask = BugReportServiceInstance.SendBugReportAsync(message, exception);
-
-                if (isFatal)
-                {
-                    // For fatal exceptions, block the thread to ensure the report is sent before the process terminates.
-                    // We use a timeout to prevent hanging forever if the network is down.
-                    _ = reportTask.Wait(TimeSpan.FromSeconds(5));
-                }
-                else
-                {
-                    // For non-fatal exceptions, fire and forget
-                    _ = reportTask;
-                }
+                reportTask.Wait(TimeSpan.FromSeconds(5));
             }
         }
         catch

@@ -3,37 +3,16 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using Serilog;
 using SharpCompress.Archives;
 
 namespace BatchConvertToRVZ.services;
 
-/// <summary>
-/// Service responsible for extracting RVZ files to ISO format.
-/// Supports direct RVZ files and RVZ files inside archives.
-/// </summary>
 public class ExtractionService
 {
-    private readonly Action<string> _logMessage;
-    private readonly Func<string, Exception?, Task> _reportBugAsync;
+    private readonly ILogger _logger;
     private readonly FileService _fileService;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ExtractionService"/> class.
-    /// </summary>
-    /// <param name="logMessage">Action to log messages.</param>
-    /// <param name="reportBugAsync">Function to report bugs asynchronously with optional exception.</param>
-    /// <param name="fileService">FileService instance to use for file operations.</param>
-    public ExtractionService(
-        Action<string> logMessage,
-        Func<string, Exception?, Task> reportBugAsync,
-        FileService fileService)
-    {
-        _logMessage = logMessage;
-        _reportBugAsync = reportBugAsync;
-        _fileService = fileService;
-    }
-
-    // Valid output formats for extraction
     private static readonly HashSet<string> ValidOutputFormats = new(StringComparer.OrdinalIgnoreCase)
     {
         "iso",
@@ -42,18 +21,12 @@ public class ExtractionService
         "wia"
     };
 
-    /// <summary>
-    /// Performs batch extraction of RVZ files to ISO format.
-    /// </summary>
-    /// <param name="dolphinToolPath">Path to the DolphinTool executable.</param>
-    /// <param name="files">Array of file paths to extract.</param>
-    /// <param name="outputFolder">Output folder for extracted files.</param>
-    /// <param name="deleteFiles">Whether to delete original files after successful extraction.</param>
-    /// <param name="outputFormat">Output format (iso, wbfs, gcz, wia).</param>
-    /// <param name="updateProgress">Callback to update progress.</param>
-    /// <param name="incrementSuccess">Callback to increment success count.</param>
-    /// <param name="incrementFailure">Callback to increment failure count.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
+    public ExtractionService(ILogger logger, FileService fileService)
+    {
+        _logger = logger.ForContext<ExtractionService>();
+        _fileService = fileService;
+    }
+
     public async Task PerformBatchExtractionAsync(
         string dolphinToolPath,
         string[] files,
@@ -65,35 +38,34 @@ public class ExtractionService
         Action<int> incrementFailure,
         CancellationToken cancellationToken)
     {
-        // Validate output format
         if (!ValidOutputFormats.Contains(outputFormat))
         {
-            _logMessage($"Error: Invalid output format '{outputFormat}'. Valid formats are: {string.Join(", ", ValidOutputFormats)}");
+            _logger.Information("{Message:l}", $"Error: Invalid output format '{outputFormat}'. Valid formats are: {string.Join(", ", ValidOutputFormats)}");
             return;
         }
 
         try
         {
-            _logMessage("Preparing for batch extraction...");
+            _logger.Information("{Message:l}", "Preparing for batch extraction...");
 
             var totalFilesToProcess = files.Length;
-            _logMessage($"Processing {totalFilesToProcess} selected files.");
+            _logger.Information("{Message:l}", $"Processing {totalFilesToProcess} selected files.");
 
             if (totalFilesToProcess == 0)
             {
-                _logMessage("No files selected for extraction.");
+                _logger.Information("{Message:l}", "No files selected for extraction.");
                 return;
             }
 
             var filesProcessedCount = 0;
 
-            _logMessage("Processing files sequentially.");
+            _logger.Information("{Message:l}", "Processing files sequentially.");
             foreach (var inputFile in files)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var fileName = Path.GetFileName(inputFile);
-                _logMessage($"Processing: {fileName}");
+                _logger.Information("{Message:l}", $"Processing: {fileName}");
 
                 var success = await ProcessFileAsync(
                     dolphinToolPath,
@@ -106,12 +78,12 @@ public class ExtractionService
                 if (success)
                 {
                     incrementSuccess(1);
-                    _logMessage($"Extraction successful: {fileName}");
+                    _logger.Information("{Message:l}", $"Extraction successful: {fileName}");
                 }
                 else
                 {
                     incrementFailure(1);
-                    _logMessage($"Extraction failed: {fileName}");
+                    _logger.Information("{Message:l}", $"Extraction failed: {fileName}");
                 }
 
                 filesProcessedCount++;
@@ -120,13 +92,12 @@ public class ExtractionService
         }
         catch (OperationCanceledException)
         {
-            _logMessage("Batch extraction operation was canceled.");
+            _logger.Information("{Message:l}", "Batch extraction operation was canceled.");
             throw;
         }
         catch (Exception ex)
         {
-            _logMessage($"Error during batch extraction: {ex.Message}");
-            await _reportBugAsync("Error during batch extraction operation", ex);
+            _logger.Error(ex, "Error during batch extraction operation: {Message}", ex.Message);
         }
     }
 
@@ -166,13 +137,12 @@ public class ExtractionService
         }
         catch (OperationCanceledException)
         {
-            _logMessage($"Processing canceled: {fileName}");
+            _logger.Information("{Message:l}", $"Processing canceled: {fileName}");
             throw;
         }
         catch (Exception ex)
         {
-            _logMessage($"Error processing {fileName}: {ex.Message}");
-            await _reportBugAsync($"Error processing file: {fileName}", ex);
+            _logger.Error(ex, "Error processing file {FileName}: {Message}", fileName, ex.Message);
             return false;
         }
     }
@@ -189,12 +159,12 @@ public class ExtractionService
 
         try
         {
-            _logMessage($"Extracting archive: {archiveFileName}");
+            _logger.Information("{Message:l}", $"Extracting archive: {archiveFileName}");
 
             var extractionResult = await ExtractRvzFromArchiveAsync(archivePath, cancellationToken);
             if (!extractionResult.Success)
             {
-                _logMessage($"Failed to extract {archiveFileName}: {extractionResult.ErrorMessage}");
+                _logger.Information("{Message:l}", $"Failed to extract {archiveFileName}: {extractionResult.ErrorMessage}");
                 return false;
             }
 
@@ -207,7 +177,7 @@ public class ExtractionService
                     dolphinToolPath,
                     extractedFilePath,
                     outputFolder,
-                    false, // Don't delete extracted file - we'll clean up temp dir
+                    false,
                     outputFormat,
                     cancellationToken);
 
@@ -225,13 +195,12 @@ public class ExtractionService
         }
         catch (OperationCanceledException)
         {
-            _logMessage($"Archive processing canceled: {archiveFileName}");
+            _logger.Information("{Message:l}", $"Archive processing canceled: {archiveFileName}");
             throw;
         }
         catch (Exception ex)
         {
-            _logMessage($"Error processing archive {archiveFileName}: {ex.Message}");
-            await _reportBugAsync($"Error processing archive: {archiveFileName}", ex);
+            _logger.Error(ex, "Error processing archive {ArchiveFileName}: {Message}", archiveFileName, ex.Message);
             return false;
         }
     }
@@ -242,11 +211,10 @@ public class ExtractionService
 
         try
         {
-            // Create temporary directory for extraction
             tempDir = Path.Combine(Path.GetTempPath(), "BatchConvertToRVZ_Extract_" + Path.GetRandomFileName());
             Directory.CreateDirectory(tempDir);
 
-            _logMessage($"Extracting archive to temporary directory: {tempDir}");
+            _logger.Information("{Message:l}", $"Extracting archive to temporary directory: {tempDir}");
 
             using var archive = ArchiveFactory.OpenArchive(archivePath);
             var rvzExtensions = _fileService.GetRvzExtensions();
@@ -261,11 +229,9 @@ public class ExtractionService
                 return (false, string.Empty, string.Empty, $"No RVZ file found inside {archiveName}.");
             }
 
-            // Extract the file name from the entry key, handling potential directory separators
             var entryName = entry.Key?.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
             entryName = Path.GetFileName(entryName);
 
-            // If entry name is still invalid, create one from archive name preserving the extension
             if (string.IsNullOrWhiteSpace(entryName))
             {
                 var archiveName = Path.GetFileNameWithoutExtension(archivePath);
@@ -282,29 +248,26 @@ public class ExtractionService
                 await source.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
             }
 
-            _logMessage($"Extracted {entryName} from archive.");
+            _logger.Information("{Message:l}", $"Extracted {entryName} from archive.");
             return (true, extractedFilePath, tempDir, string.Empty);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // Real user cancellation - propagate
             throw;
         }
         catch (Exception ex)
         {
-            // SharpCompress internal failure (not user cancellation) - try 7za.exe fallback
             var archiveName = Path.GetFileName(archivePath);
 
             if (ex is OperationCanceledException)
             {
-                _logMessage($"SharpCompress extraction failed for {archiveName} (internal cancellation), falling back to 7za.exe...");
+                _logger.Information("{Message:l}", $"SharpCompress extraction failed for {archiveName} (internal cancellation), falling back to 7za.exe...");
             }
             else
             {
-                _logMessage($"SharpCompress extraction failed for {archiveName}: {ex.Message}, falling back to 7za.exe...");
+                _logger.Information("{Message:l}", $"SharpCompress extraction failed for {archiveName}: {ex.Message}, falling back to 7za.exe...");
             }
 
-            // Clean up SharpCompress temp dir
             if (!string.IsNullOrEmpty(tempDir) && Directory.Exists(tempDir))
             {
                 try
@@ -317,16 +280,13 @@ public class ExtractionService
                 }
             }
 
-            // Try 7za.exe fallback
             var sevenZipResult = await ExtractRvzWith7ZipAsync(archivePath, cancellationToken);
             if (sevenZipResult.Success)
             {
                 return sevenZipResult;
             }
 
-            // Both SharpCompress and 7za.exe failed - report as corrupt
-            _logMessage($"Extraction failed with both SharpCompress and 7za.exe for {archiveName}. File may be corrupt.");
-            await _reportBugAsync($"Error extracting archive: {archiveName}", ex);
+            _logger.Information("{Message:l}", $"Extraction failed with both SharpCompress and 7za.exe for {archiveName}. File may be corrupt.");
 
             return (false, string.Empty, string.Empty, $"Failed to extract archive (file may be corrupt): {archiveName}");
         }
@@ -344,11 +304,11 @@ public class ExtractionService
             var sevenZipPath = Get7ZipExecutablePath();
             if (!File.Exists(sevenZipPath))
             {
-                _logMessage($"7za executable not found at: {sevenZipPath}");
+                _logger.Information("{Message:l}", $"7za executable not found at: {sevenZipPath}");
                 return (false, string.Empty, string.Empty, "7za executable not found.");
             }
 
-            _logMessage($"Extracting with 7za.exe to: {tempDir}");
+            _logger.Information("{Message:l}", $"Extracting with 7za.exe to: {tempDir}");
 
             using var process = new Process();
             process.StartInfo = new ProcessStartInfo
@@ -382,11 +342,10 @@ public class ExtractionService
             if (process.ExitCode != 0)
             {
                 var errorOutput = errorBuilder.ToString();
-                _logMessage($"7za.exe extraction failed with exit code {process.ExitCode}: {errorOutput}");
+                _logger.Information("{Message:l}", $"7za.exe extraction failed with exit code {process.ExitCode}: {errorOutput}");
                 return (false, string.Empty, string.Empty, $"7za.exe extraction failed: {errorOutput}");
             }
 
-            // Find the extracted RVZ file
             var rvzExtensions = _fileService.GetRvzExtensions();
 
             var extractedFile = Directory.GetFiles(tempDir, "*", SearchOption.AllDirectories)
@@ -398,12 +357,12 @@ public class ExtractionService
 
             if (extractedFile is null)
             {
-                _logMessage("No RVZ file found in 7za.exe extraction output.");
+                _logger.Information("{Message:l}", "No RVZ file found in 7za.exe extraction output.");
                 return (false, string.Empty, string.Empty, "No RVZ file found after 7za.exe extraction.");
             }
 
             var entryName = Path.GetFileName(extractedFile);
-            _logMessage($"Extracted {entryName} from archive using 7za.exe.");
+            _logger.Information("{Message:l}", $"Extracted {entryName} from archive using 7za.exe.");
 
             return (true, extractedFile, tempDir, string.Empty);
         }
@@ -413,9 +372,8 @@ public class ExtractionService
         }
         catch (Exception ex)
         {
-            _logMessage($"7za.exe extraction error: {ex.Message}");
+            _logger.Information("{Message:l}", $"7za.exe extraction error: {ex.Message}");
 
-            // Clean up on failure
             if (!string.IsNullOrEmpty(tempDir) && Directory.Exists(tempDir))
             {
                 try
@@ -459,19 +417,18 @@ public class ExtractionService
 
         try
         {
-            _logMessage($"Converting to {outputFormat.ToUpperInvariant()}: {fileName} -> {outputFileName}");
+            _logger.Information("{Message:l}", $"Converting to {outputFormat.ToUpperInvariant()}: {fileName} -> {outputFileName}");
 
-            // Check if output file already exists and delete it
             if (File.Exists(outputFile))
             {
                 try
                 {
                     File.Delete(outputFile);
-                    _logMessage($"Deleted existing output file: {outputFileName}");
+                    _logger.Information("{Message:l}", $"Deleted existing output file: {outputFileName}");
                 }
                 catch (Exception ex)
                 {
-                    _logMessage($"Failed to delete existing file {outputFileName}: {ex.Message}");
+                    _logger.Information("{Message:l}", $"Failed to delete existing file {outputFileName}: {ex.Message}");
                     return false;
                 }
             }
@@ -492,13 +449,12 @@ public class ExtractionService
         }
         catch (OperationCanceledException)
         {
-            _logMessage($"Conversion canceled: {fileName}");
+            _logger.Information("{Message:l}", $"Conversion canceled: {fileName}");
             throw;
         }
         catch (Exception ex)
         {
-            _logMessage($"Error converting {fileName}: {ex.Message}");
-            await _reportBugAsync($"Error converting file: {fileName}", ex);
+            _logger.Error(ex, "Error converting file {FileName}: {Message}", fileName, ex.Message);
             return false;
         }
     }
@@ -547,7 +503,7 @@ public class ExtractionService
                 else
                 {
                     outputQueue.Enqueue(args.Data);
-                    _logMessage($"[DolphinTool] {args.Data}");
+                    _logger.Information("{Message:l}", $"[DolphinTool] {args.Data}");
                 }
             };
 
@@ -560,7 +516,7 @@ public class ExtractionService
                 else
                 {
                     errorQueue.Enqueue(args.Data);
-                    _logMessage($"[DolphinTool ERROR] {args.Data}");
+                    _logger.Information("{Message:l}", $"[DolphinTool ERROR] {args.Data}");
                 }
             };
 
@@ -580,32 +536,30 @@ public class ExtractionService
             while (errorQueue.TryDequeue(out var line)) errorBuilder.AppendLine(line);
             var error = errorBuilder.ToString();
 
-            // Success check: exit code 0 AND file exists
             if (process.ExitCode == 0)
             {
-                // Wait for the file to be written (with timeout)
                 var fileExists = await WaitForFileExistsAsync(outputFile, cancellationToken);
 
                 if (fileExists)
                 {
-                    _logMessage($"Successfully converted to {outputFormat.ToUpperInvariant()}: {Path.GetFileName(outputFile)}");
+                    _logger.Information("{Message:l}", $"Successfully converted to {outputFormat.ToUpperInvariant()}: {Path.GetFileName(outputFile)}");
                     return true;
                 }
                 else
                 {
-                    _logMessage($"Conversion failed for {Path.GetFileName(inputFile)}. Output file not found after waiting.");
+                    _logger.Information("{Message:l}", $"Conversion failed for {Path.GetFileName(inputFile)}. Output file not found after waiting.");
                     if (!string.IsNullOrEmpty(error))
-                        _logMessage($"Error output: {error}");
+                        _logger.Information("{Message:l}", $"Error output: {error}");
                     return false;
                 }
             }
             else
             {
-                _logMessage($"Conversion failed for {Path.GetFileName(inputFile)}. Exit code: {process.ExitCode}");
+                _logger.Information("{Message:l}", $"Conversion failed for {Path.GetFileName(inputFile)}. Exit code: {process.ExitCode}");
                 if (!string.IsNullOrEmpty(output))
-                    _logMessage($"Output: {output}");
+                    _logger.Information("{Message:l}", $"Output: {output}");
                 if (!string.IsNullOrEmpty(error))
-                    _logMessage($"Error output: {error}");
+                    _logger.Information("{Message:l}", $"Error output: {error}");
                 return false;
             }
         }
@@ -628,14 +582,13 @@ public class ExtractionService
                 }
             }
 
-            _logMessage($"DolphinTool process error: {ex.Message}");
+            _logger.Information("{Message:l}", $"DolphinTool process error: {ex.Message}");
             return false;
         }
     }
 
     private static async Task<bool> WaitForFileExistsAsync(string filePath, CancellationToken cancellationToken)
     {
-        // Wait up to 5 seconds for the file to appear (file system flush delay)
         const int maxAttempts = 50;
         const int delayMs = 100;
 
@@ -659,7 +612,7 @@ public class ExtractionService
             if (File.Exists(filePath))
             {
                 File.Delete(filePath);
-                _logMessage($"Deleted {description}: {Path.GetFileName(filePath)}");
+                _logger.Information("{Message:l}", $"Deleted {description}: {Path.GetFileName(filePath)}");
                 return Task.FromResult(true);
             }
 
@@ -667,7 +620,7 @@ public class ExtractionService
         }
         catch (Exception ex)
         {
-            _logMessage($"Failed to delete {description} {Path.GetFileName(filePath)}: {ex.Message}");
+            _logger.Information("{Message:l}", $"Failed to delete {description} {Path.GetFileName(filePath)}: {ex.Message}");
             return Task.FromResult(false);
         }
     }
@@ -679,12 +632,12 @@ public class ExtractionService
             if (Directory.Exists(dirPath))
             {
                 Directory.Delete(dirPath, true);
-                _logMessage($"Deleted {description}");
+                _logger.Information("{Message:l}", $"Deleted {description}");
             }
         }
         catch (Exception ex)
         {
-            _logMessage($"Failed to delete {description}: {ex.Message}");
+            _logger.Information("{Message:l}", $"Failed to delete {description}: {ex.Message}");
         }
 
         return Task.CompletedTask;
