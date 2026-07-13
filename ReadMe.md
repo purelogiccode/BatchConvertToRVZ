@@ -39,14 +39,18 @@ Batch Convert to RVZ is a comprehensive Windows application that provides a user
 - **Smooth Progress Tracking**: A single, overall progress bar that smoothly tracks the entire batch operation, including real-time percentages from active tasks.
 - **Intelligent Auto-Scroll**: The log viewer only snaps to the bottom if you are already looking at the latest logs, allowing you to read previous errors without interruption.
 - **Immediate Cancellation**: Stop extractions and conversions instantly, even for massive 8GB+ files, thanks to asynchronous I/O and cancellation token support.
-- **Optimized Logging**: High-performance log processing that handles thousands of lines without UI stuttering or high memory usage.
+- **Optimized Logging**: Structured logging with Serilog, handling thousands of lines without UI stuttering or high memory usage.
+- **Collapsible Settings Panels**: Settings sections use Expander controls (collapsed by default) to reduce visual clutter in all tabs.
+- **Screenshot Capture**: Press F8 to capture the application window as a PNG screenshot.
 - **Thread-Safe Dialogs**: Robust UI handling that prevents crashes when showing error messages or update prompts from background threads.
 - **Auto-Update Checking**: Accurate version comparison between GitHub release tags and assembly versions with seamless GitHub integration.
 
 ### Technical Features
 - **Asynchronous Architecture**: Fully async/await implementation to keep the UI responsive during intensive I/O and processing.
 - **Cross-Architecture Support**: Native support for both x64 and ARM64 Windows systems.
+- **Structured Logging**: Serilog-based logging with rolling daily log files, on-screen log viewer, and automatic bug reporting via custom sinks.
 - **Global Error Reporting**: Automatic bug reporting to developers with comprehensive error details.
+- **Process Error Suppression**: Prevents Windows error dialogs from child processes (DolphinTool) from blocking batch operations.
 - **Robust Cleanup**: Asynchronous retry logic for deleting locked temporary files and directories.
 - **Memory Management**: Efficient string handling and proper resource disposal to prevent leaks.
 
@@ -64,6 +68,9 @@ The application follows a modular architecture with clear separation of concerns
 | `UpdateService` | GitHub API integration for checking application updates |
 | `BugReportService` | Automatic error reporting to development team |
 | `StatsService` | Statistics tracking for conversion and verification operations |
+| `ScreenshotService` | Window screenshot capture (F8) |
+| `UiLogSink` / `BugReportSink` | Serilog sinks for UI log display and automatic bug reporting |
+| `ProcessHelper` | Suppresses Windows error dialogs from child processes |
 | `SharedHttpHandler` | Shared HttpClient configuration for update and bug report services |
 | `FileItem` | Data model for file state, progress, and status tracking |
 | `GitHubRelease` | Data model for GitHub release information |
@@ -131,6 +138,10 @@ The application follows a modular architecture with clear separation of concerns
 - **Help > Check for Updates**: Manually check for new versions on GitHub.
 - **Help > About**: View application information and credits.
 
+### Screenshot Capture
+
+Press **F8** at any time to capture the application window. Screenshots are saved as timestamped PNG files in the `Screenshot` folder inside the application directory.
+
 ## Compression Settings Guide
 
 ### Compression Methods
@@ -164,7 +175,7 @@ RVZ is a compressed disk image format developed specifically for the Dolphin Emu
 - **Missing Dependencies**: Ensure `DolphinTool.exe` (or `DolphinTool_arm64.exe` for ARM64 systems) is present in the application directory.
 - **Permission Issues**: Make sure you have read permissions for input directories and write permissions for output directories.
 - **Archive Extraction Failures**: Verify that the archive files are not corrupted. The app now supports instant cancellation if extraction hangs.
-- **Conversion Errors**: Check the detailed real-time log output for specific error messages.
+- **Conversion Errors**: Check the detailed real-time log output for specific error messages. Log files are also saved to `%LocalAppData%\BatchConvertToRVZ\logs\`.
 - **Performance Issues**: Try reducing the number of concurrent files if you experience system instability.
 - **Auto-Reporting**: The application automatically reports unexpected errors to developers for continuous improvement.
 
@@ -173,18 +184,23 @@ RVZ is a compressed disk image format developed specifically for the Dolphin Emu
 ### Project Structure
 ```
 BatchConvertToRVZ/
-├── App.xaml.cs              # Application entry point, global exception handling
+├── App.xaml.cs              # Application entry point, global exception handling, Serilog bootstrap
 ├── MainWindow.xaml          # Main UI definition
 ├── MainWindow.xaml.cs       # Main UI logic and operation orchestration
 ├── AboutWindow.xaml         # About dialog UI
 ├── AboutWindow.xaml.cs      # About dialog logic
 ├── services/
 │   ├── BugReportService.cs  # Automatic error reporting service
+│   ├── BugReportSink.cs     # Serilog sink: forwards Warning+ events to BugReport API
 │   ├── ConversionService.cs # Core conversion logic
 │   ├── ExtractionService.cs # Archive extraction logic
 │   ├── FileService.cs       # File scanning and filtering
+│   ├── LoggingSinkExtensions.cs # Serilog configuration extensions
+│   ├── ProcessHelper.cs     # Suppresses child process error dialogs
+│   ├── ScreenshotService.cs # F8 window screenshot capture
 │   ├── SharedHttpHandler.cs # Shared HTTP client configuration
 │   ├── StatsService.cs      # Statistics tracking service
+│   ├── UiLogSink.cs         # Serilog sink: forwards log events to the UI
 │   ├── UpdateService.cs     # GitHub update checking service
 │   └── VerificationService.cs # RVZ integrity verification
 ├── models/
@@ -212,6 +228,7 @@ dotnet test
 
 - **DolphinTool**: Uses `DolphinTool` from the [Dolphin Emulator project](https://dolphin-emu.org/) for RVZ conversion and verification.
 - **SharpCompress**: Uses the [SharpCompress](https://github.com/adamhathcock/sharpcompress) library for reliable archive extraction.
+- **Serilog**: Uses [Serilog](https://serilog.net/) for structured logging with custom sinks.
 - **Development**: Created and maintained by [Pure Logic Code](https://www.purelogiccode.com)
 
 ## Support the Project
