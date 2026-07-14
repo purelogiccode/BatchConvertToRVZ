@@ -18,6 +18,13 @@ internal static class ProcessHelper
     /// </summary>
     internal static void SuppressErrorDialogs()
     {
-        _ = SetProcessErrorMode(SemFailcriticalerrors | SemNogpfaulterrorbox | SemNoopenfileerrorbox);
+        try
+        {
+            _ = SetProcessErrorMode(SemFailcriticalerrors | SemNogpfaulterrorbox | SemNoopenfileerrorbox);
+        }
+        catch
+        {
+            // SetProcessErrorMode may not be available on all Windows versions
+        }
     }
 }

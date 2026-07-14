@@ -7,8 +7,8 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <UseWPF>true</UseWPF>
         <ApplicationIcon>icon\icon.ico</ApplicationIcon>
-        <AssemblyVersion>2.4.0</AssemblyVersion>
-        <FileVersion>2.4.0</FileVersion>
+        <AssemblyVersion>2.4.1</AssemblyVersion>
+        <FileVersion>2.4.1</FileVersion>
         <IsPackable>false</IsPackable>
         <NeutralLanguage>en-US</NeutralLanguage>
         <AssemblyName>BatchConvertToRVZ</AssemblyName>
@@ -33,7 +33,7 @@
     <ItemGroup>
         <PackageReference Include="Serilog" Version="4.4.0" />
         <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
-        <PackageReference Include="SharpCompress" Version="0.49.1" />
+        <PackageReference Include="SharpCompress" Version="0.50.0" />
     </ItemGroup>
 
     <ItemGroup>

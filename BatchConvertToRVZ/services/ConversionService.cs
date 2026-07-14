@@ -407,21 +407,26 @@ public class ConversionService
         }
         catch (OperationCanceledException)
         {
-            if (!process.HasExited) process.Kill(true);
+            try { if (!process.HasExited) process.Kill(true); }
+            catch
+            {
+                // ignored
+            }
+
             throw;
         }
         catch (Exception ex)
         {
-            if (!process.HasExited)
+            try
             {
-                try
+                if (!process.HasExited)
                 {
                     process.Kill(true);
                 }
-                catch
-                {
-                    /* ignore */
-                }
+            }
+            catch
+            {
+                /* process may not have started */
             }
 
             _logger.Information("{Message:l}", $"DolphinTool process error: {ex.Message}");
