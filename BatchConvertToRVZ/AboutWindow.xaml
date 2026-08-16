@@ -37,8 +37,8 @@
                 <TextBlock FontWeight="Bold" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" Text="Description" Margin="0,0,0,10" />
                 <TextBlock TextWrapping="Wrap" Text="A utility for batch converting GameCube/Wii ISO images to RVZ format." Foreground="{StaticResource TextSecondaryBrush}" LineHeight="20" />
                 <TextBlock Margin="0,10,0,0">
-                    <Hyperlink NavigateUri="https://github.com/drpetersonfernandes/BatchConvertToRVZ" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{StaticResource LinkTextBrush}" TextDecorations="Underline" ToolTip="Visit the project repository">
-                        https://github.com/drpetersonfernandes/BatchConvertToRVZ
+                    <Hyperlink NavigateUri="https://github.com/purelogiccode/BatchConvertToRVZ" RequestNavigate="Hyperlink_RequestNavigate" Foreground="{StaticResource LinkTextBrush}" TextDecorations="Underline" ToolTip="Visit the project repository">
+                        https://github.com/purelogiccode/BatchConvertToRVZ
                     </Hyperlink>
                 </TextBlock>
                 <TextBlock Margin="0,15,0,0">

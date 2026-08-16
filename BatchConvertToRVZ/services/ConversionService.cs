@@ -13,11 +13,13 @@ public class ConversionService
 {
     private readonly ILogger _logger;
     private readonly FileService _fileService;
+    private readonly RvzSharpService _rvzSharpService;
 
-    public ConversionService(ILogger logger, FileService fileService)
+    public ConversionService(ILogger logger, FileService fileService, RvzSharpService? rvzSharpService = null)
     {
         _logger = logger.ForContext<ConversionService>();
         _fileService = fileService;
+        _rvzSharpService = rvzSharpService ?? new RvzSharpService(logger);
     }
 
     public async Task PerformBatchConversionAsync(
@@ -314,6 +316,12 @@ public class ConversionService
         int blockSize,
         CancellationToken cancellationToken)
     {
+        if (_rvzSharpService.CanEncode(inputFile, compressionMethod)
+            && _rvzSharpService.TryEncode(inputFile, outputFile, compressionMethod, compressionLevel, blockSize, cancellationToken))
+        {
+            return true;
+        }
+
         using var process = new Process();
 
         try
@@ -407,7 +415,10 @@ public class ConversionService
         }
         catch (OperationCanceledException)
         {
-            try { if (!process.HasExited) process.Kill(true); }
+            try
+            {
+                if (!process.HasExited) process.Kill(true);
+            }
             catch
             {
                 // ignored

@@ -49,6 +49,7 @@ public class ExtractionServiceTests : IDisposable
     private sealed class DelegatingSink : ILogEventSink
     {
         private readonly Action<string> _onMessage;
+
         public DelegatingSink(Action<string> onMessage)
         {
             _onMessage = onMessage;
@@ -249,6 +250,26 @@ public class ExtractionServiceTests : IDisposable
             (_, _, name) => processedFiles.Add(name), static _ => { }, static _ => { }, CancellationToken.None);
 
         Assert.Equal(2, processedFiles.Count);
+    }
+
+    [Fact]
+    public async Task PerformBatchExtractionAsyncCorruptRvzFallsBackToDolphinTool()
+    {
+        var service = CreateService();
+
+        // A corrupt RVZ cannot be decoded by RVZSharp, so it must fall back to DolphinTool
+        var rvzPath = Path.Combine(_tempDir, $"corrupt_{Path.GetRandomFileName()}.rvz");
+        File.WriteAllBytes(rvzPath, [0x00, 0x01, 0x02, 0x03, 0x04]);
+
+        var successCount = 0;
+        var failureCount = 0;
+
+        await service.PerformBatchExtractionAsync(
+            @"C:\nonexistent_path\fake_dolphin.exe", [rvzPath], _tempDir, false, "iso", static (_, _, _) => { }, _ => { successCount++; }, _ => { failureCount++; }, CancellationToken.None);
+
+        Assert.Contains(_logMessages, static m => m.Contains("Falling back to DolphinTool"));
+        Assert.Equal(0, successCount);
+        Assert.Equal(1, failureCount);
     }
 
     [Fact]

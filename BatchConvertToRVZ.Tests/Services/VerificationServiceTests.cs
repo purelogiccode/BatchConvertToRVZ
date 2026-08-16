@@ -47,6 +47,7 @@ public class VerificationServiceTests : IDisposable
     private sealed class DelegatingSink : ILogEventSink
     {
         private readonly Action<string> _onMessage;
+
         public DelegatingSink(Action<string> onMessage)
         {
             _onMessage = onMessage;

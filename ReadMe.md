@@ -1,7 +1,7 @@
-[![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-blue)](https://github.com/drpetersonfernandes/BatchConvertToRVZ/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-blue)](https://github.com/purelogiccode/BatchConvertToRVZ/releases)
 [![.NET 10.0](https://img.shields.io/badge/.NET-10.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
-[![GitHub release](https://img.shields.io/github/v/release/drpetersonfernandes/BatchConvertToRVZ)](https://github.com/drpetersonfernandes/BatchConvertToRVZ/releases)
+[![GitHub release](https://img.shields.io/github/v/release/purelogiccode/BatchConvertToRVZ)](https://github.com/purelogiccode/BatchConvertToRVZ/releases)
 
 # Batch Convert to RVZ
 
@@ -46,6 +46,8 @@ Batch Convert to RVZ is a comprehensive Windows application that provides a user
 - **Auto-Update Checking**: Accurate version comparison between GitHub release tags and assembly versions with seamless GitHub integration.
 
 ### Technical Features
+- **Native RVZ Engine**: Built-in `RVZSharp` library encodes and decodes RVZ files natively (100% managed codecs), with automatic fallback to `DolphinTool` whenever the library fails.
+- **Library Failure Reporting**: Every `RVZSharp` failure is automatically reported to the Bug Report API so the library can be improved over time.
 - **Asynchronous Architecture**: Fully async/await implementation to keep the UI responsive during intensive I/O and processing.
 - **Cross-Architecture Support**: Native support for both x64 and ARM64 Windows systems.
 - **Structured Logging**: Serilog-based logging with rolling daily log files, on-screen log viewer, and automatic bug reporting via custom sinks.
@@ -65,6 +67,7 @@ The application follows a modular architecture with clear separation of concerns
 | `VerificationService` | RVZ integrity verification with real-time output |
 | `ExtractionService` | Archive extraction (ZIP, 7Z, RAR) with cancellation support |
 | `FileService` | File scanning, filtering, and output path management |
+| `RvzSharpService` | Native RVZ encode/decode via the RVZSharp library, with DolphinTool fallback |
 | `UpdateService` | GitHub API integration for checking application updates |
 | `BugReportService` | Automatic error reporting to development team |
 | `StatsService` | Statistics tracking for conversion and verification operations |
@@ -75,8 +78,28 @@ The application follows a modular architecture with clear separation of concerns
 | `FileItem` | Data model for file state, progress, and status tracking |
 | `GitHubRelease` | Data model for GitHub release information |
 | `SystemInfo` | System information data model |
-| `DolphinTool` | External tool for RVZ conversion and verification |
+| `DolphinTool` | External fallback tool for RVZ conversion and verification |
+| `RVZSharp` | Third-party library for native RVZ encode/decode |
 | `SharpCompress` | Third-party library for archive extraction |
+
+## Conversion Engine
+
+Batch Convert to RVZ uses **RVZSharp** — a pure managed C# library — as its primary engine for
+converting disc images to RVZ (encode) and RVZ back to ISO (decode):
+
+- **Encode**: `RVZSharp` encodes ISO/GCM/WBFS/GCZ/WIA images natively with the selected
+  compression method (zstd, bzip2, lzma, lzma2), level and block size. The `zlib` and `lz4`
+  methods are DolphinTool-only and always use the external tool.
+- **Decode**: `RVZSharp` decodes RVZ files back to the original ISO byte-for-byte. Other output
+  formats (wbfs, gcz, wia) always use DolphinTool.
+- **Automatic Fallback**: If the library fails on a file (corrupt input, unsupported feature,
+  etc.), the application automatically falls back to `DolphinTool` for that file and the batch
+  continues normally.
+- **Input Pre-validation**: Before encoding, the application verifies the input actually looks
+  like a disc image (GCN/WII header on ISO/GCM files, container magic on WBFS/GCZ/WIA files).
+  Unrecognized data is sent to `DolphinTool` instead of being wrapped into a broken RVZ.
+- **Failure Reporting**: Every RVZSharp failure is logged and automatically sent to the Bug
+  Report API with full error details, so library issues can be fixed over time.
 
 ## Supported File Formats
 
@@ -100,7 +123,7 @@ The application follows a modular architecture with clear separation of concerns
 
 ## Installation
 
-1. Download the latest release from the [Releases page](https://github.com/drpetersonfernandes/BatchConvertToRVZ/releases)
+1. Download the latest release from the [Releases page](https://github.com/purelogiccode/BatchConvertToRVZ/releases)
 2. Extract the ZIP file to a folder of your choice
 3. Run `BatchConvertToRVZ.exe`
 
@@ -226,7 +249,8 @@ dotnet test
 
 ## Acknowledgements
 
-- **DolphinTool**: Uses `DolphinTool` from the [Dolphin Emulator project](https://dolphin-emu.org/) for RVZ conversion and verification.
+- **DolphinTool**: Uses `DolphinTool` from the [Dolphin Emulator project](https://dolphin-emu.org/) as a fallback for RVZ conversion and verification.
+- **RVZSharp**: Uses the [RVZSharp](https://github.com/purelogiccode/RVZSharp) library for native RVZ encoding and decoding.
 - **SharpCompress**: Uses the [SharpCompress](https://github.com/adamhathcock/sharpcompress) library for reliable archive extraction.
 - **Serilog**: Uses [Serilog](https://serilog.net/) for structured logging with custom sinks.
 - **Development**: Created and maintained by [Pure Logic Code](https://www.purelogiccode.com)
@@ -236,7 +260,7 @@ dotnet test
 ### ⭐ Give us a Star!
 If you find this application useful, please consider giving us a star on GitHub! It helps others discover the project and motivates us to continue improving it.
 
-[⭐ Star this project on GitHub](https://github.com/drpetersonfernandes/BatchConvertToRVZ)
+[⭐ Star this project on GitHub](https://github.com/purelogiccode/BatchConvertToRVZ)
 
 ### 💖 Support Development
 This application is developed and maintained for free. If you'd like to support continued development and new features, consider making a donation:

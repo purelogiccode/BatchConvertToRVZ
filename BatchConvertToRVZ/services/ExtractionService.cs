@@ -12,6 +12,7 @@ public class ExtractionService
 {
     private readonly ILogger _logger;
     private readonly FileService _fileService;
+    private readonly RvzSharpService _rvzSharpService;
 
     private static readonly HashSet<string> ValidOutputFormats = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -21,10 +22,11 @@ public class ExtractionService
         "wia"
     };
 
-    public ExtractionService(ILogger logger, FileService fileService)
+    public ExtractionService(ILogger logger, FileService fileService, RvzSharpService? rvzSharpService = null)
     {
         _logger = logger.ForContext<ExtractionService>();
         _fileService = fileService;
+        _rvzSharpService = rvzSharpService ?? new RvzSharpService(logger);
     }
 
     public async Task PerformBatchExtractionAsync(
@@ -466,6 +468,15 @@ public class ExtractionService
         string outputFormat,
         CancellationToken cancellationToken)
     {
+        // RVZSharp decodes back to the original ISO image only; other output
+        // formats (wbfs, gcz, wia) always go through DolphinTool.
+        if (outputFormat.Equals("iso", StringComparison.OrdinalIgnoreCase)
+            && _rvzSharpService.CanDecode(inputFile)
+            && _rvzSharpService.TryDecodeToIso(inputFile, outputFile, cancellationToken))
+        {
+            return true;
+        }
+
         using var process = new Process();
 
         try

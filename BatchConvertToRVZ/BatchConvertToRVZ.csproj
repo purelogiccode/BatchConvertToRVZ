@@ -31,9 +31,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="RVZSharp" Version="1.0.0" />
         <PackageReference Include="Serilog" Version="4.4.0" />
         <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
-        <PackageReference Include="SharpCompress" Version="0.50.0" />
+        <PackageReference Include="SharpCompress" Version="0.50.4" />
     </ItemGroup>
 
     <ItemGroup>

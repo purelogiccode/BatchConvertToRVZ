@@ -49,6 +49,7 @@ public class ConversionServiceTests : IDisposable
     private sealed class DelegatingSink : ILogEventSink
     {
         private readonly Action<string> _onMessage;
+
         public DelegatingSink(Action<string> onMessage)
         {
             _onMessage = onMessage;
@@ -172,22 +173,50 @@ public class ConversionServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task PerformBatchConversionAsyncZipWithIsoExtractsSuccessfully()
+    public async Task PerformBatchConversionAsyncZipWithIsoConvertsSuccessfullyViaRvzSharp()
     {
         var service = CreateService();
 
-        // Create a minimal ISO-like file (just enough for SharpCompress to extract)
-        var isoContent = new byte[350_000]; // Small ISO-like file
+        // Create a minimal ISO-like file with a valid GameCube disc header
+        var isoContent = new byte[350_000];
         new Random(42).NextBytes(isoContent);
+        isoContent[0x18] = (byte)'G';
+        isoContent[0x19] = (byte)'C';
+        isoContent[0x1A] = (byte)'N';
         var archivePath = CreateTestZipArchive("game.iso", isoContent);
 
+        var successCount = 0;
         var failureCount = 0;
 
         await service.PerformBatchConversionAsync(
-            @"C:\nonexistent_path\fake_dolphin.exe", [archivePath], _tempDir, false, "zstd", 5, 131072, static (_, _, _) => { }, static _ => { }, _ => { failureCount++; }, CancellationToken.None);
+            @"C:\nonexistent_path\fake_dolphin.exe", [archivePath], _tempDir, false, "zstd", 5, 131072, static (_, _, _) => { }, _ => { successCount++; }, _ => { failureCount++; }, CancellationToken.None);
 
-        // Extraction should succeed, conversion fails due to missing tool
+        // Extraction should succeed and the conversion should be done natively by RVZSharp,
+        // without needing DolphinTool
         Assert.Contains(_logMessages, static m => m.Contains("Extracted"));
+        Assert.Contains(_logMessages, static m => m.Contains("Converted to RVZ using RVZSharp"));
+        Assert.Equal(1, successCount);
+        Assert.Equal(0, failureCount);
+    }
+
+    [Fact]
+    public async Task PerformBatchConversionAsyncTooSmallIsoFallsBackToDolphinTool()
+    {
+        var service = CreateService();
+
+        // A 100-byte ISO is too small for RVZSharp to encode, so it must fall back to DolphinTool
+        var isoContent = new byte[100];
+        new Random(42).NextBytes(isoContent);
+        var archivePath = CreateTestZipArchive("game.iso", isoContent);
+
+        var successCount = 0;
+        var failureCount = 0;
+
+        await service.PerformBatchConversionAsync(
+            @"C:\nonexistent_path\fake_dolphin.exe", [archivePath], _tempDir, false, "zstd", 5, 131072, static (_, _, _) => { }, _ => { successCount++; }, _ => { failureCount++; }, CancellationToken.None);
+
+        Assert.Contains(_logMessages, static m => m.Contains("Falling back to DolphinTool"));
+        Assert.Equal(0, successCount);
         Assert.Equal(1, failureCount);
     }
 

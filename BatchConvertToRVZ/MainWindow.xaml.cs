@@ -35,7 +35,7 @@ public partial class MainWindow : IDisposable
     private readonly FileService _fileService;
     private readonly ScreenshotService _screenshotService;
 
-    private const string GitHubApiUrl = "https://api.github.com/repos/drpetersonfernandes/BatchConvertToRVZ/releases/latest";
+    private const string GitHubApiUrl = "https://api.github.com/repos/purelogiccode/BatchConvertToRVZ/releases/latest";
 
     // Compression settings (now instance variables to allow user configuration)
     private string _rvzCompressionMethod = "zstd"; // Default compression method
@@ -165,9 +165,10 @@ public partial class MainWindow : IDisposable
 
         // Initialize service classes with Serilog ILogger (Warning+ auto-forwards to BugReport API)
         _fileService = new FileService();
-        _conversionService = new ConversionService(Log.Logger, _fileService);
+        var rvzSharpService = new RvzSharpService(Log.Logger);
+        _conversionService = new ConversionService(Log.Logger, _fileService, rvzSharpService);
         _verificationService = new VerificationService(Log.Logger);
-        _extractionService = new ExtractionService(Log.Logger, _fileService);
+        _extractionService = new ExtractionService(Log.Logger, _fileService, rvzSharpService);
         _screenshotService = new ScreenshotService(Log.Logger);
 
         LogMessage("Welcome to the Batch Convert to RVZ.");
