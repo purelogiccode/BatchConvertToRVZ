@@ -13,9 +13,19 @@ public class UiLogSink : ILogEventSink
     private readonly IFormatProvider? _formatProvider;
 
     /// <summary>
+    /// Event arguments for <see cref="MessageLogged"/>: a pre-formatted, timestamped
+    /// log line ready for display.
+    /// </summary>
+    public sealed class LogMessageEventArgs(string message) : EventArgs
+    {
+        /// <summary>The formatted log line.</summary>
+        public string Message { get; } = message;
+    }
+
+    /// <summary>
     /// Raised for every log event, providing a pre-formatted, timestamped line ready for display.
     /// </summary>
-    public static event Action<string>? MessageLogged;
+    public static event EventHandler<LogMessageEventArgs>? MessageLogged;
 
     public UiLogSink(IFormatProvider? formatProvider = null)
     {
@@ -29,6 +39,6 @@ public class UiLogSink : ILogEventSink
 
         var message = logEvent.RenderMessage(_formatProvider);
         var line = $"[{logEvent.Timestamp:HH:mm:ss.fff}] {message}";
-        handler(line);
+        handler(null, new LogMessageEventArgs(line));
     }
 }

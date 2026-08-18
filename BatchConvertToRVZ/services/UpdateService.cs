@@ -135,7 +135,7 @@ public partial class UpdateService : IDisposable
         return version;
     }
 
-    [GeneratedRegex(@"\d+\.\d+(\.\d+)?(\.\d+)?")]
+    [GeneratedRegex(@"\d+\.\d+(\.\d+)?(\.\d+)?", RegexOptions.NonBacktracking | RegexOptions.ExplicitCapture)]
     private static partial Regex VersionCoreRegex();
 
     public void Dispose()

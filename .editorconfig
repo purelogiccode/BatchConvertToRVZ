@@ -1,0 +1,55 @@
+# Top-most EditorConfig: applies to all files in the repository.
+root = true
+
+[*]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{cs,csproj,props,targets}]
+indent_style = space
+indent_size = 4
+
+[*.{md,json,xml,sln}]
+indent_size = 2
+
+# --- Meziantou.Analyzer suppressions (build-affecting, keep!) -----------------
+
+[*.cs]
+# Method is too long: the WPF code-behind and the batch services keep long
+# orchestration methods on purpose.
+dotnet_diagnostic.MA0051.severity = none
+# ConfigureAwait(false): this is a WPF application — the services run on the UI
+# thread, await I/O, and call back into the UI (callbacks marshal through the
+# Dispatcher). Keeping the default SynchronizationContext capture is intentional.
+dotnet_diagnostic.MA0004.severity = none
+# String comparison / culture rules: the app uses the default overloads for its
+# UI-facing strings on purpose.
+dotnet_diagnostic.MA0048.severity = none
+dotnet_diagnostic.MA0016.severity = none
+dotnet_diagnostic.MA0002.severity = none
+dotnet_diagnostic.MA0005.severity = none
+dotnet_diagnostic.MA0006.severity = none
+dotnet_diagnostic.MA0011.severity = none
+dotnet_diagnostic.MA0074.severity = none
+
+# --- C# code style (matches the existing codebase) ---------------------------
+
+[*.cs]
+
+# File-scoped namespaces (used throughout the codebase).
+csharp_style_namespace_declarations = file_scoped:suggestion
+
+# 'var' everywhere (codebase convention).
+csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_elsewhere = true:suggestion
+
+# Private fields use the '_camelCase' convention.
+dotnet_naming_rule.private_members_with_underscore.symbols = private_symbol
+dotnet_naming_rule.private_members_with_underscore.style = underscore_prefix
+dotnet_naming_rule.private_members_with_underscore.severity = suggestion
+dotnet_naming_symbols.private_symbol.applicable_kinds = field, property
+dotnet_naming_symbols.private_symbol.required_modifiers = private
+dotnet_naming_style.underscore_prefix.required_prefix = _
+dotnet_naming_style.underscore_prefix.capitalization = camel_case

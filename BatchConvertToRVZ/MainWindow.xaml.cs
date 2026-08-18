@@ -26,8 +26,8 @@ public partial class MainWindow : IDisposable
     private bool _dependenciesOk;
     private string? _dolphinToolPath;
     private CancellationTokenSource _cts;
-    private readonly object _ctsLock = new();
-    private readonly object _closingLock = new();
+    private readonly Lock _ctsLock = new();
+    private readonly Lock _closingLock = new();
     private readonly UpdateService _updateService;
     private readonly ConversionService _conversionService;
     private readonly VerificationService _verificationService;
@@ -61,12 +61,12 @@ public partial class MainWindow : IDisposable
     private int _failureCount;
     private readonly Stopwatch _operationTimer = new();
     private System.Windows.Threading.DispatcherTimer? _processingTimeUpdateTimer;
-    private readonly object _statsLock = new();
+    private readonly Lock _statsLock = new();
 
     // Write speed calculation
     private long _totalBytesProcessed;
     private DateTime _speedCalculationStartTime;
-    private readonly object _speedLock = new();
+    private readonly Lock _speedLock = new();
 
     // Fields for verification move options
     private bool _moveFailedFiles;
@@ -105,7 +105,7 @@ public partial class MainWindow : IDisposable
                 failureCount = _failureCount;
             }
 
-            Dispatcher.BeginInvoke(() =>
+            _ = Dispatcher.BeginInvoke(() =>
             {
                 var completed = successCount + failureCount;
                 ProgressBar.Value = Math.Min(completed, totalToProcess);
@@ -124,7 +124,7 @@ public partial class MainWindow : IDisposable
     {
         try
         {
-            Dispatcher.BeginInvoke(() =>
+            _ = Dispatcher.BeginInvoke(() =>
             {
                 if (FindName("StatusBarText") is System.Windows.Controls.TextBlock statusBarText)
                 {
@@ -387,13 +387,13 @@ public partial class MainWindow : IDisposable
     /// Called by <see cref="UiLogSink"/> for every log event. Writes the pre-formatted
     /// line into the bounded channel so <see cref="ProcessLogsAsync"/> can batch it to the UI.
     /// </summary>
-    private void EnqueueLogLine(string line)
+    private void EnqueueLogLine(object? sender, UiLogSink.LogMessageEventArgs e)
     {
         if (_disposed) return;
 
         try
         {
-            _logChannel.Writer.TryWrite(line);
+            _logChannel.Writer.TryWrite(e.Message);
         }
         catch (ChannelClosedException)
         {
@@ -1245,7 +1245,7 @@ public partial class MainWindow : IDisposable
     {
         try
         {
-            Dispatcher.BeginInvoke(() =>
+            _ = Dispatcher.BeginInvoke(() =>
             {
                 FileProgressBar.IsIndeterminate = false;
                 FileProgressBar.Value = 0;
@@ -1717,7 +1717,7 @@ public partial class MainWindow : IDisposable
                 failureCount = _failureCount;
             }
 
-            Dispatcher.BeginInvoke(() =>
+            _ = Dispatcher.BeginInvoke(() =>
             {
                 TotalFilesValue.Text = totalFiles.ToString(CultureInfo.InvariantCulture);
                 SuccessValue.Text = successCount.ToString(CultureInfo.InvariantCulture);
@@ -1739,7 +1739,7 @@ public partial class MainWindow : IDisposable
         var elapsed = _operationTimer.Elapsed;
         try
         {
-            Dispatcher.BeginInvoke(() =>
+            _ = Dispatcher.BeginInvoke(() =>
             {
                 ProcessingTimeValue.Text = $"{(int)elapsed.TotalHours:D2}:{elapsed:mm\\:ss}";
             });
@@ -1758,7 +1758,7 @@ public partial class MainWindow : IDisposable
     {
         try
         {
-            Dispatcher.BeginInvoke(() =>
+            _ = Dispatcher.BeginInvoke(() =>
             {
                 WriteSpeedValue.Text = $"{speedInMBps:F1} MB/s";
             });
@@ -1777,7 +1777,7 @@ public partial class MainWindow : IDisposable
     {
         try
         {
-            Dispatcher.BeginInvoke(() =>
+            _ = Dispatcher.BeginInvoke(() =>
             {
                 var percentage = total == 0 ? 0 : (double)current / total * 100;
                 if (FindName("StatusBarText") is System.Windows.Controls.TextBlock statusBarText)
