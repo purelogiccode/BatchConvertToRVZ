@@ -185,9 +185,17 @@ public class VerificationService
         catch (OperationCanceledException)
         {
             _logger.Information("{Message:l}", $"Verification canceled: {fileName}");
-            if (!process.HasExited)
+            try
             {
-                process.Kill(true);
+                if (!process.HasExited)
+                {
+                    process.Kill(true);
+                }
+            }
+            catch
+            {
+                // The process may not have started (or already exited): HasExited/Kill
+                // throw InvalidOperationException when no process is associated.
             }
         }
         catch (Exception ex)

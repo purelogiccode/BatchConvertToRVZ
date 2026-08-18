@@ -270,6 +270,12 @@ public class ExtractionServiceTests : IDisposable
         Assert.Contains(_logMessages, static m => m.Contains("Falling back to DolphinTool"));
         Assert.Equal(0, successCount);
         Assert.Equal(1, failureCount);
+
+        // Regression (bugs 65211-65219): when DolphinTool cannot be started, the catch
+        // block must report the real cause ("DolphinTool process error: ...") instead of
+        // crashing on process.HasExited with "No process is associated with this object".
+        Assert.Contains(_logMessages, static m => m.Contains("DolphinTool process error"));
+        Assert.DoesNotContain(_logMessages, static m => m.Contains("No process is associated with this object"));
     }
 
     [Fact]

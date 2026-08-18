@@ -576,21 +576,30 @@ public class ExtractionService
         }
         catch (OperationCanceledException)
         {
-            if (!process.HasExited) process.Kill(true);
+            try
+            {
+                if (!process.HasExited) process.Kill(true);
+            }
+            catch
+            {
+                // The process may not have started (or already exited): HasExited/Kill
+                // throw InvalidOperationException when no process is associated.
+            }
+
             throw;
         }
         catch (Exception ex)
         {
-            if (!process.HasExited)
+            try
             {
-                try
+                if (!process.HasExited)
                 {
                     process.Kill(true);
                 }
-                catch
-                {
-                    /* ignore */
-                }
+            }
+            catch
+            {
+                // The process may not have started (or already exited).
             }
 
             _logger.Information("{Message:l}", $"DolphinTool process error: {ex.Message}");

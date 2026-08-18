@@ -53,6 +53,8 @@ Batch Convert to RVZ is a comprehensive Windows application that provides a user
 - **Structured Logging**: Serilog-based logging with rolling daily log files, on-screen log viewer, and automatic bug reporting via custom sinks.
 - **Global Error Reporting**: Automatic bug reporting to developers with comprehensive error details.
 - **Process Error Suppression**: Prevents Windows error dialogs from child processes (DolphinTool) from blocking batch operations.
+- **Robust Child-Process Handling**: DolphinTool/7za startup failures (missing or blocked executables) are handled gracefully — the batch continues with the real error logged instead of crashing on process cleanup.
+- **Font-Failure Resilience**: On systems with broken or missing system fonts that crash WPF text rendering, the application stays running and logs the failure instead of closing.
 - **Robust Cleanup**: Asynchronous retry logic for deleting locked temporary files and directories.
 - **Memory Management**: Efficient string handling and proper resource disposal to prevent leaks.
 
@@ -96,8 +98,10 @@ converting disc images to RVZ (encode) and RVZ back to ISO (decode):
   etc.), the application automatically falls back to `DolphinTool` for that file and the batch
   continues normally.
 - **Input Pre-validation**: Before encoding, the application verifies the input actually looks
-  like a disc image (GCN/WII header on ISO/GCM files, container magic on WBFS/GCZ/WIA files).
-  Unrecognized data is sent to `DolphinTool` instead of being wrapped into a broken RVZ.
+  like a disc image — the GameCube/Wii disc header magic (Wii `5D 1C 9E A3` at offset 0x18,
+  GameCube `C2 33 9F 3D` at offset 0x1C) on ISO/GCM files, and the real container magic
+  (`WBFS`, GCZ `01 C0 0B B1`, `WIA\x01`/`RVZ\x01`) on container files. Unrecognized data is
+  sent to `DolphinTool` instead of being wrapped into a broken RVZ.
 - **Failure Reporting**: Every RVZSharp failure is logged and automatically sent to the Bug
   Report API with full error details, so library issues can be fixed over time.
 
@@ -199,6 +203,7 @@ RVZ is a compressed disk image format developed specifically for the Dolphin Emu
 - **Permission Issues**: Make sure you have read permissions for input directories and write permissions for output directories.
 - **Archive Extraction Failures**: Verify that the archive files are not corrupted. The app now supports instant cancellation if extraction hangs.
 - **Conversion Errors**: Check the detailed real-time log output for specific error messages. Log files are also saved to `%LocalAppData%\BatchConvertToRVZ\logs\`.
+- **Font-Related Rendering Issues**: If UI text fails to render on systems with missing or broken system fonts, the application stays running and logs the font error — consider restoring your system fonts.
 - **Performance Issues**: Try reducing the number of concurrent files if you experience system instability.
 - **Auto-Reporting**: The application automatically reports unexpected errors to developers for continuous improvement.
 

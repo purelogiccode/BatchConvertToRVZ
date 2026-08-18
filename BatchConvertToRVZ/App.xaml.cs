@@ -146,19 +146,29 @@ public partial class App
     {
         var ex = e.Exception;
 
-        if (ex is IOException or TaskCanceledException or OperationCanceledException or UnauthorizedAccessException)
+        switch (ex)
         {
-            Log.Error(ex, "Application.DispatcherUnhandledException (recoverable)");
-            MessageBox.Show($"An unexpected but recoverable error occurred: {ex.Message}\n\nThe application will continue to run, but the current operation may have failed.",
-                "Recoverable Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-            e.Handled = true;
-        }
-        else
-        {
-            Log.Fatal(ex, "Application.DispatcherUnhandledException (fatal)");
-            TryReportFatal("Application.DispatcherUnhandledException", ex);
-            MessageBox.Show($"A fatal error occurred and the application must close: {ex.Message}\n\nA bug report has been sent.",
-                "Fatal Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            case IOException or TaskCanceledException or OperationCanceledException or UnauthorizedAccessException:
+                Log.Error(ex, "Application.DispatcherUnhandledException (recoverable)");
+                MessageBox.Show($"An unexpected but recoverable error occurred: {ex.Message}\n\nThe application will continue to run, but the current operation may have failed.",
+                    "Recoverable Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                e.Handled = true;
+                break;
+            case UriFormatException:
+                // WPF text-layout crash on machines with broken/missing system fonts: the
+                // font cache fails to parse a font URI while measuring a TextBlock
+                // (MS.Internal.FontCache.Util.CombineUriWithFaceIndex). The affected element
+                // simply does not render; keep the application running. No dialog: the
+                // failure can repeat on every layout pass.
+                Log.Error(ex, "Application.DispatcherUnhandledException (font rendering, handled)");
+                e.Handled = true;
+                break;
+            default:
+                Log.Fatal(ex, "Application.DispatcherUnhandledException (fatal)");
+                TryReportFatal("Application.DispatcherUnhandledException", ex);
+                MessageBox.Show($"A fatal error occurred and the application must close: {ex.Message}\n\nA bug report has been sent.",
+                    "Fatal Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                break;
         }
     }
 
