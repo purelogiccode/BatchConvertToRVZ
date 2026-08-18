@@ -85,14 +85,15 @@ public class RvzSharpService
         {
             // Pre-validation: the input must actually look like the disc format its
             // extension claims. Plain disc images (ISO/GCM) must carry a GameCube/Wii
-            // disc header (magic "GCN"/"WII" at offset 0x18); container formats must
-            // start with their container magic. Without this the library would wrap
-            // arbitrary bytes into a structurally valid but unusable RVZ (Blob.Open
-            // falls back to treating any unrecognized file as a plain ISO).
+            // disc header (Wii magic 0x5D1C9EA3 at offset 0x18, GameCube magic 0xC2339F3D
+            // at offset 0x1C); container formats must start with their container magic.
+            // The library validates the disc header before writing too, but pre-validating
+            // here keeps expected failures quiet (Information log, no bug report) so
+            // non-disc files fall back to DolphinTool without bug-report noise.
             if (!IsRecognizedDiscImage(inputFile))
             {
                 _logger.Information(
-                    "Input {FileName} is not a recognized disc image (missing GCN/WII header or container magic). Falling back to DolphinTool.",
+                    "Input {FileName} is not a recognized disc image (missing GameCube/Wii header or container magic). Falling back to DolphinTool.",
                     Path.GetFileName(inputFile));
                 return false;
             }
@@ -212,12 +213,14 @@ public class RvzSharpService
 
     // First bytes of each container format the library can read. The magic must
     // actually be present or Blob.Open would silently treat the file as a plain ISO.
+    // (Note: the GCZ magic is 0xB10BC001 little endian — not the ASCII "GCZ\0" the
+    // name suggests — and the RVZ/WIA magics are "RVZ\1"/"WIA\1", not "RVZ\0"/"WIA\0".)
     private static readonly Dictionary<string, byte[]> ContainerMagics = new(StringComparer.OrdinalIgnoreCase)
     {
         [".wbfs"] = "WBFS"u8.ToArray(),
-        [".gcz"] = "GCZ\0"u8.ToArray(), // "GCZ\0"
-        [".wia"] = "WIA"u8.ToArray(),
-        [".rvz"] = "RVZ\0"u8.ToArray() // "RVZ\0"
+        [".gcz"] = [0x01, 0xC0, 0x0B, 0xB1],
+        [".wia"] = "WIA\x01"u8.ToArray(),
+        [".rvz"] = "RVZ\x01"u8.ToArray()
     };
 
     /// <summary>
@@ -240,8 +243,9 @@ public class RvzSharpService
     }
 
     /// <summary>
-    /// Checks that the file starts with a valid GameCube/Wii disc header. Both formats
-    /// carry the disc magic at offset 0x18: "GCN" for GameCube, "WII" for Wii.
+    /// Checks that the file starts with a valid GameCube/Wii disc header. The header magic
+    /// is stored big endian: Wii 0x5D1C9EA3 at offset 0x18, GameCube 0xC2339F3D at offset
+    /// 0x1C (Dolphin: TryCreateDisc, Volume.cpp) — matching the library's validation.
     /// </summary>
     private static bool HasValidDiscHeader(string inputFile)
     {
@@ -249,15 +253,14 @@ public class RvzSharpService
         {
             using var stream = File.OpenRead(inputFile);
 
-            Span<byte> header = stackalloc byte[0x1B];
+            Span<byte> header = stackalloc byte[0x20];
             var read = stream.Read(header);
             if (read < header.Length)
             {
                 return false;
             }
 
-            var magic = (header[0x18], header[0x19], header[0x1A]);
-            return magic is ((byte)'G', (byte)'C', (byte)'N') or ((byte)'W', (byte)'I', (byte)'I');
+            return ReadBe32(header, 0x18) == 0x5D1C9EA3u || ReadBe32(header, 0x1C) == 0xC2339F3Du;
         }
         catch (IOException)
         {
@@ -267,6 +270,11 @@ public class RvzSharpService
         {
             return false;
         }
+    }
+
+    private static uint ReadBe32(ReadOnlySpan<byte> data, int offset)
+    {
+        return (uint)((data[offset] << 24) | (data[offset + 1] << 16) | (data[offset + 2] << 8) | data[offset + 3]);
     }
 
     /// <summary>

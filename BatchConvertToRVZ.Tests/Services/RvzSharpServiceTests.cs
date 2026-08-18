@@ -154,7 +154,8 @@ public class RvzSharpServiceTests : IDisposable
         File.WriteAllBytes(inputFile, content);
 
         // A .wbfs file without the "WBFS" magic is not a WBFS container; without this
-        // check the library would silently treat it as a plain ISO and wrap it.
+        // check the library would treat it as a plain ISO (and, since 1.0.1, reject it
+        // at write time for lacking a disc header). Either way it must not be encoded.
         var result = _service.TryEncode(inputFile, outputFile, "zstd", 5, 131072, CancellationToken.None);
 
         Assert.False(result);
@@ -165,16 +166,19 @@ public class RvzSharpServiceTests : IDisposable
 
     [Theory]
     [InlineData("container.wbfs", "WBFS")]
-    [InlineData("container.gcz", "GCZ\0")]
-    [InlineData("container.wia", "WIA")]
-    [InlineData("container.rvz", "RVZ\0")]
+    [InlineData("container.gcz", "\u0001\u00c0\v\xB1")]
+    [InlineData("container.wia", "WIA\x01")]
+    [InlineData("container.rvz", "RVZ\x01")]
     public void TryEncodeAttemptsContainerWithMatchingMagic(string fileName, string magic)
     {
         var inputFile = Path.Combine(_tempDir, fileName);
         var outputFile = Path.Combine(_tempDir, "game.rvz");
         var content = new byte[350_000];
         new Random(42).NextBytes(content);
-        System.Text.Encoding.ASCII.GetBytes(magic).CopyTo(content, 0);
+        // Latin-1 maps every char 0x00-0xFF straight to its byte (ASCII would turn 0xC0
+        // into '?'), so the GCZ magic 0x01 0xC0 0x0B 0xB1 and the RVZ/WIA "\x01" magics
+        // land in the file byte-for-byte.
+        System.Text.Encoding.Latin1.GetBytes(magic).CopyTo(content, 0);
         File.WriteAllBytes(inputFile, content);
 
         // A file with the matching container magic is handed to the library, which
@@ -192,9 +196,10 @@ public class RvzSharpServiceTests : IDisposable
     {
         var content = new byte[size];
         new Random(42).NextBytes(content);
-        content[0x18] = (byte)'G';
-        content[0x19] = (byte)'C';
-        content[0x1A] = (byte)'N';
+        content[0x1C] = 0xC2; // GameCube disc magic 0xC2339F3D at offset 0x1C
+        content[0x1D] = 0x33;
+        content[0x1E] = 0x9F;
+        content[0x1F] = 0x3D;
         return content;
     }
 

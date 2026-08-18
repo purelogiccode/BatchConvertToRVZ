@@ -180,9 +180,10 @@ public class ConversionServiceTests : IDisposable
         // Create a minimal ISO-like file with a valid GameCube disc header
         var isoContent = new byte[350_000];
         new Random(42).NextBytes(isoContent);
-        isoContent[0x18] = (byte)'G';
-        isoContent[0x19] = (byte)'C';
-        isoContent[0x1A] = (byte)'N';
+        isoContent[0x1C] = 0xC2; // GameCube disc magic 0xC2339F3D at offset 0x1C
+        isoContent[0x1D] = 0x33;
+        isoContent[0x1E] = 0x9F;
+        isoContent[0x1F] = 0x3D;
         var archivePath = CreateTestZipArchive("game.iso", isoContent);
 
         var successCount = 0;
