@@ -109,7 +109,7 @@ public class ConversionService
 
         try
         {
-            if (_fileService.GetArchiveExtensions().Contains(inputExtension))
+            if (FileService.GetArchiveExtensions().Contains(inputExtension))
             {
                 return await ProcessArchiveFileAsync(
                     dolphinToolPath,
@@ -165,7 +165,8 @@ public class ConversionService
             var extractionResult = await ExtractArchiveAsync(archivePath, cancellationToken);
             if (!extractionResult.Success)
             {
-                _logger.Information("{Message:l}", $"Failed to extract {archiveFileName}: {extractionResult.ErrorMessage}");
+                _logger.Information("{Message:l}",
+                    $"Failed to extract {archiveFileName}: {extractionResult.ErrorMessage}");
                 return false;
             }
 
@@ -194,7 +195,8 @@ public class ConversionService
                     }
                     catch (Exception ex)
                     {
-                        _logger.Information("{Message:l}", $"Error copying RVZ file from archive {fileName}: {ex.Message}");
+                        _logger.Information("{Message:l}",
+                            $"Error copying RVZ file from archive {fileName}: {ex.Message}");
                         success = false;
                     }
                 }
@@ -246,14 +248,15 @@ public class ConversionService
         CancellationToken cancellationToken)
     {
         var fileName = Path.GetFileName(inputFile);
-        var outputFileName = _fileService.GetBaseFileNameWithoutGameExtension(fileName) + ".rvz";
+        var outputFileName = FileService.GetBaseFileNameWithoutGameExtension(fileName) + ".rvz";
         var outputFile = Path.Combine(outputFolder, outputFileName);
 
         try
         {
-            if (_fileService.IsRvzFile(inputFile))
+            if (FileService.IsRvzFile(inputFile))
             {
-                _logger.Information("{Message:l}", $"File is already in RVZ format, copying: {fileName} -> {outputFileName}");
+                _logger.Information("{Message:l}",
+                    $"File is already in RVZ format, copying: {fileName} -> {outputFileName}");
 
                 try
                 {
@@ -316,10 +319,18 @@ public class ConversionService
         int blockSize,
         CancellationToken cancellationToken)
     {
-        if (_rvzSharpService.CanEncode(inputFile, compressionMethod)
-            && _rvzSharpService.TryEncode(inputFile, outputFile, compressionMethod, compressionLevel, blockSize, cancellationToken))
+        if (RvzSharpService.CanEncode(inputFile, compressionMethod)
+            && _rvzSharpService.TryEncode(inputFile, outputFile, compressionMethod, compressionLevel, blockSize,
+                cancellationToken))
         {
             return true;
+        }
+
+        if (!ProcessHelper.ExecutableExists(dolphinToolPath))
+        {
+            _logger.Error("DolphinTool is missing. {Message:l}",
+                ProcessHelper.GetMissingExecutableMessage(dolphinToolPath));
+            return false;
         }
 
         using var process = new Process();
@@ -408,7 +419,8 @@ public class ConversionService
             }
             else
             {
-                _logger.Information("{Message:l}", $"Conversion failed for {Path.GetFileName(inputFile)}. Exit code: {process.ExitCode}");
+                _logger.Information("{Message:l}",
+                    $"Conversion failed for {Path.GetFileName(inputFile)}. Exit code: {process.ExitCode}");
                 _logger.Information("{Message:l}", $"Output: {output}");
                 return false;
             }
@@ -445,7 +457,8 @@ public class ConversionService
         }
     }
 
-    private async Task<(bool Success, string FilePath, string TempDir, string ErrorMessage, bool IsRvzFile)> ExtractArchiveAsync(string archivePath, CancellationToken cancellationToken)
+    private async Task<(bool Success, string FilePath, string TempDir, string ErrorMessage, bool IsRvzFile)>
+        ExtractArchiveAsync(string archivePath, CancellationToken cancellationToken)
     {
         var tempDir = string.Empty;
 
@@ -457,8 +470,8 @@ public class ConversionService
             _logger.Information("{Message:l}", $"Extracting archive to temporary directory: {tempDir}");
 
             using var archive = ArchiveFactory.OpenArchive(archivePath);
-            var supportedExtensions = _fileService.GetPrimaryTargetExtensionsInsideArchive();
-            var rvzExtensions = _fileService.GetRvzExtensions();
+            var supportedExtensions = FileService.GetPrimaryTargetExtensionsInsideArchive();
+            var rvzExtensions = FileService.GetRvzExtensions();
 
             var rvzEntry = archive.Entries.FirstOrDefault(e =>
                 e is { IsDirectory: false, Key: not null } &&
@@ -471,13 +484,15 @@ public class ConversionService
             if (entry == null)
             {
                 var archiveName = Path.GetFileName(archivePath);
-                return (false, string.Empty, string.Empty, $"No supported disc image found inside {archiveName}.", false);
+                return (false, string.Empty, string.Empty, $"No supported disc image found inside {archiveName}.",
+                    false);
             }
 
             var isRvzFile = rvzExtensions.Any(ext =>
                 entry.Key?.EndsWith(ext, StringComparison.OrdinalIgnoreCase) == true);
 
-            var entryName = entry.Key?.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
+            var entryName = entry.Key?.Replace('/', Path.DirectorySeparatorChar)
+                .Replace('\\', Path.DirectorySeparatorChar);
             entryName = Path.GetFileName(entryName);
 
             if (string.IsNullOrWhiteSpace(entryName))
@@ -517,11 +532,13 @@ public class ConversionService
 
             if (ex is OperationCanceledException)
             {
-                _logger.Information("{Message:l}", $"SharpCompress extraction failed for {archiveName} (internal cancellation), falling back to 7za.exe...");
+                _logger.Information("{Message:l}",
+                    $"SharpCompress extraction failed for {archiveName} (internal cancellation), falling back to 7za.exe...");
             }
             else
             {
-                _logger.Information("{Message:l}", $"SharpCompress extraction failed for {archiveName}: {ex.Message}, falling back to 7za.exe...");
+                _logger.Information("{Message:l}",
+                    $"SharpCompress extraction failed for {archiveName}: {ex.Message}, falling back to 7za.exe...");
             }
 
             if (!string.IsNullOrEmpty(tempDir) && Directory.Exists(tempDir))
@@ -542,13 +559,16 @@ public class ConversionService
                 return sevenZipResult;
             }
 
-            _logger.Information("{Message:l}", $"Extraction failed with both SharpCompress and 7za.exe for {archiveName}. File may be corrupt.");
+            _logger.Information("{Message:l}",
+                $"Extraction failed with both SharpCompress and 7za.exe for {archiveName}. File may be corrupt.");
 
-            return (false, string.Empty, string.Empty, $"Failed to extract archive (file may be corrupt): {archiveName}", false);
+            return (false, string.Empty, string.Empty,
+                $"Failed to extract archive (file may be corrupt): {archiveName}", false);
         }
     }
 
-    private async Task<(bool Success, string FilePath, string TempDir, string ErrorMessage, bool IsRvzFile)> ExtractWith7ZipAsync(string archivePath, CancellationToken cancellationToken)
+    private async Task<(bool Success, string FilePath, string TempDir, string ErrorMessage, bool IsRvzFile)>
+        ExtractWith7ZipAsync(string archivePath, CancellationToken cancellationToken)
     {
         var tempDir = string.Empty;
 
@@ -598,12 +618,13 @@ public class ConversionService
             if (process.ExitCode != 0)
             {
                 var errorOutput = errorBuilder.ToString();
-                _logger.Information("{Message:l}", $"7za.exe extraction failed with exit code {process.ExitCode}: {errorOutput}");
+                _logger.Information("{Message:l}",
+                    $"7za.exe extraction failed with exit code {process.ExitCode}: {errorOutput}");
                 return (false, string.Empty, string.Empty, $"7za.exe extraction failed: {errorOutput}", false);
             }
 
-            var supportedExtensions = _fileService.GetPrimaryTargetExtensionsInsideArchive();
-            var rvzExtensions = _fileService.GetRvzExtensions();
+            var supportedExtensions = FileService.GetPrimaryTargetExtensionsInsideArchive();
+            var rvzExtensions = FileService.GetRvzExtensions();
 
             var extractedFile = Directory.GetFiles(tempDir, "*", SearchOption.AllDirectories)
                 .FirstOrDefault(f =>
@@ -615,7 +636,8 @@ public class ConversionService
             if (extractedFile is null)
             {
                 _logger.Information("{Message:l}", "No supported disc image found in 7za.exe extraction output.");
-                return (false, string.Empty, string.Empty, "No supported disc image found after 7za.exe extraction.", false);
+                return (false, string.Empty, string.Empty, "No supported disc image found after 7za.exe extraction.",
+                    false);
             }
 
             var isRvzFile = rvzExtensions.Contains(Path.GetExtension(extractedFile).ToLowerInvariant());
@@ -683,7 +705,8 @@ public class ConversionService
         }
         catch (Exception ex)
         {
-            _logger.Information("{Message:l}", $"Failed to delete {description} {Path.GetFileName(filePath)}: {ex.Message}");
+            _logger.Information("{Message:l}",
+                $"Failed to delete {description} {Path.GetFileName(filePath)}: {ex.Message}");
             return Task.FromResult(false);
         }
     }

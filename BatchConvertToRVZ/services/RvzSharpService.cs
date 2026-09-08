@@ -48,7 +48,7 @@ public class RvzSharpService
     /// <param name="inputFile">The input disc image path.</param>
     /// <param name="compressionMethod">The requested compression method (zstd, bzip2, lzma, lzma2, zlib, lz4).</param>
     /// <returns>true if RVZSharp should attempt the encoding; otherwise, false.</returns>
-    public bool CanEncode(string inputFile, string compressionMethod)
+    public static bool CanEncode(string inputFile, string compressionMethod)
     {
         var fileName = Path.GetFileName(inputFile);
 
@@ -142,7 +142,7 @@ public class RvzSharpService
     /// </summary>
     /// <param name="inputFile">The input RVZ (or WIA) file path.</param>
     /// <returns>true if RVZSharp should attempt the decoding; otherwise, false.</returns>
-    public bool CanDecode(string inputFile)
+    public static bool CanDecode(string inputFile)
     {
         var extension = Path.GetExtension(inputFile);
         return extension.Equals(".rvz", StringComparison.OrdinalIgnoreCase)

@@ -57,7 +57,7 @@ public partial class UpdateService : IDisposable
         {
             var latestRelease = await _httpClient.GetFromJsonAsync<GitHubRelease>(_githubApiUrl);
 
-            if (latestRelease == null || latestRelease.Draft || latestRelease.Prerelease)
+            if (latestRelease?.Draft != false || latestRelease.Prerelease)
             {
                 return (false, null);
             }

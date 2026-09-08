@@ -25,7 +25,8 @@ public class ScreenshotService
 
             if (width <= 0 || height <= 0)
             {
-                _logger.Information("{Message:l}", "Error: Cannot take a screenshot because the window has no visible area.");
+                _logger.Information("{Message:l}",
+                    "Error: Cannot take a screenshot because the window has no visible area.");
                 return null;
             }
 

@@ -43,15 +43,16 @@ public partial class MainWindow : IDisposable
     private int _rvzBlockSize = 131072; // Default block size (128KB)
 
     // Compression level ranges for different methods
-    private static readonly Dictionary<string, (int Min, int Max)> CompressionLevelRanges = new(StringComparer.OrdinalIgnoreCase)
-    {
-        { "zstd", (1, 22) },
-        { "zlib", (1, 9) },
-        { "lzma", (1, 9) },
-        { "lzma2", (1, 9) },
-        { "bzip2", (1, 9) },
-        { "lz4", (1, 12) }
-    };
+    private static readonly Dictionary<string, (int Min, int Max)> CompressionLevelRanges =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            { "zstd", (1, 22) },
+            { "zlib", (1, 9) },
+            { "lzma", (1, 9) },
+            { "lzma2", (1, 9) },
+            { "bzip2", (1, 9) },
+            { "lz4", (1, 12) }
+        };
 
     // Extension arrays moved to FileService
 
@@ -242,7 +243,8 @@ public partial class MainWindow : IDisposable
             StartVerifyButton.IsEnabled = false;
             StartExtractionButton.IsEnabled = false;
             var missingFilesString = string.Join(", ", missingFiles);
-            var errorMessage = $"The following critical file(s) are missing: {missingFilesString}.\n\nThe application cannot function without them. Please ensure all files from the release archive are in the same folder as this application.";
+            var errorMessage =
+                $"The following critical file(s) are missing: {missingFilesString}.\n\nThe application cannot function without them. Please ensure all files from the release archive are in the same folder as this application.";
             LogMessage($"WARNING: {errorMessage.ReplaceLineEndings(" ")}");
             ShowError(errorMessage);
         }
@@ -448,7 +450,8 @@ public partial class MainWindow : IDisposable
 
                             // Only scroll to end if the user is already at the bottom (or very close to it)
                             // This allows users to scroll up to read previous logs without being snapped back
-                            var isAtBottom = LogViewer.VerticalOffset + LogViewer.ViewportHeight >= LogViewer.ExtentHeight - 10;
+                            var isAtBottom = LogViewer.VerticalOffset + LogViewer.ViewportHeight >=
+                                             LogViewer.ExtentHeight - 10;
 
                             LogViewer.AppendText(combinedLogs);
 
@@ -456,7 +459,8 @@ public partial class MainWindow : IDisposable
                             if (LogViewer.LineCount > MaxLogLines)
                             {
                                 LogViewer.Clear();
-                                LogViewer.AppendText($"[{DateTime.Now:HH:mm:ss.fff}] --- Log cleared (exceeded {MaxLogLines} lines) to prevent UI freeze ---{Environment.NewLine}");
+                                LogViewer.AppendText(
+                                    $"[{DateTime.Now:HH:mm:ss.fff}] --- Log cleared (exceeded {MaxLogLines} lines) to prevent UI freeze ---{Environment.NewLine}");
                                 isAtBottom = true; // Always scroll to end after clear
                             }
 
@@ -519,7 +523,7 @@ public partial class MainWindow : IDisposable
             _conversionFiles.Clear();
 
             var files = Directory.GetFiles(inputFolder, "*.*", SearchOption.TopDirectoryOnly)
-                .Where(file => _fileService.IsSupportedInputFile(file))
+                .Where(file => FileService.IsSupportedInputFile(file))
                 .ToArray();
 
             foreach (var file in files)
@@ -570,8 +574,10 @@ public partial class MainWindow : IDisposable
             // Prevent starting multiple operations simultaneously
             if (_currentOperation != OperationType.None)
             {
-                LogMessage($"Error: Cannot start conversion while a {_currentOperation.ToString().ToLowerInvariant()} operation is in progress.");
-                ShowError($"Please wait for the current {_currentOperation.ToString().ToLowerInvariant()} operation to complete before starting a new one.");
+                LogMessage(
+                    $"Error: Cannot start conversion while a {_currentOperation.ToString().ToLowerInvariant()} operation is in progress.");
+                ShowError(
+                    $"Please wait for the current {_currentOperation.ToString().ToLowerInvariant()} operation to complete before starting a new one.");
                 return;
             }
 
@@ -606,7 +612,8 @@ public partial class MainWindow : IDisposable
                 return;
             }
 
-            var selectedFiles = _conversionFiles.Where(static f => f.IsSelected).Select(static f => f.FullPath).ToArray();
+            var selectedFiles = _conversionFiles.Where(static f => f.IsSelected).Select(static f => f.FullPath)
+                .ToArray();
             if (selectedFiles.Length == 0)
             {
                 LogMessage("Error: No files selected for conversion.");
@@ -655,10 +662,7 @@ public partial class MainWindow : IDisposable
             }
 
             // Clear the log before starting the conversion
-            await Dispatcher.InvokeAsync(() =>
-            {
-                LogViewer.Clear();
-            });
+            await Dispatcher.InvokeAsync(() => LogViewer.Clear());
 
             ResetOperationStats();
             _currentOperation = OperationType.Conversion;
@@ -672,13 +676,17 @@ public partial class MainWindow : IDisposable
             LogMessage($"Input folder: {inputFolder}");
             LogMessage($"Output folder: {outputFolder}");
             LogMessage($"Delete original files: {deleteFiles}");
-            LogMessage($"RVZ Compression: Method={_rvzCompressionMethod}, Level={_rvzCompressionLevel}, Block Size={_rvzBlockSize}");
+            LogMessage(
+                $"RVZ Compression: Method={_rvzCompressionMethod}, Level={_rvzCompressionLevel}, Block Size={_rvzBlockSize}");
 
             // Wrap the whole job in a task that we can await on exit
             var wasCancelled = false;
             try
             {
-                _runningTask = Task.Run(() => PerformBatchConversionAsync(_dolphinToolPath, selectedFiles, outputFolder, deleteFiles, token), token);
+                _runningTask =
+                    Task.Run(
+                        () => PerformBatchConversionAsync(_dolphinToolPath, selectedFiles, outputFolder, deleteFiles,
+                            token), token);
 
                 await _runningTask.ConfigureAwait(false); // resume on thread pool, not UI thread
             }
@@ -734,7 +742,8 @@ public partial class MainWindow : IDisposable
             _ => "operation"
         };
 
-        ExtractionOverlayText.Text = $"Cancellation requested.\nPlease wait for the current {operationName} to complete...";
+        ExtractionOverlayText.Text =
+            $"Cancellation requested.\nPlease wait for the current {operationName} to complete...";
         ExtractionOverlay.Visibility = Visibility.Visible;
     }
 
@@ -825,6 +834,13 @@ public partial class MainWindow : IDisposable
             return $"The {label} path is invalid: \"{folderPath}\"";
         }
 
+        var driveRoot = Path.GetPathRoot(Path.GetFullPath(folderPath));
+        if (!string.IsNullOrEmpty(driveRoot) && !Directory.Exists(driveRoot))
+        {
+            return
+                $"The drive \"{driveRoot}\" containing the {label} is not available. Please reconnect the drive or choose a different {label}.";
+        }
+
         switch (mustExist)
         {
             case true when !Directory.Exists(folderPath):
@@ -870,10 +886,13 @@ public partial class MainWindow : IDisposable
     {
         try
         {
-            var parentFull = Path.GetFullPath(parent).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            var childFull = Path.GetFullPath(child).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var parentFull = Path.GetFullPath(parent)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var childFull = Path.GetFullPath(child)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             return childFull.StartsWith(parentFull + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-                   || childFull.StartsWith(parentFull + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+                   || childFull.StartsWith(parentFull + Path.AltDirectorySeparatorChar,
+                       StringComparison.OrdinalIgnoreCase);
         }
         catch
         {
@@ -881,7 +900,8 @@ public partial class MainWindow : IDisposable
         }
     }
 
-    private async Task PerformBatchConversionAsync(string dolphinToolPath, string[] files, string outputFolder, bool deleteFiles, CancellationToken token)
+    private async Task PerformBatchConversionAsync(string dolphinToolPath, string[] files, string outputFolder,
+        bool deleteFiles, CancellationToken token)
     {
         try
         {
@@ -958,7 +978,8 @@ public partial class MainWindow : IDisposable
         catch (Exception ex)
         {
             LogMessage($"Error during batch conversion: {ex.Message}");
-            await ShowMessageBoxAsync($"Error during batch conversion: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            await ShowMessageBoxAsync($"Error during batch conversion: {ex.Message}", "Error", MessageBoxButton.OK,
+                MessageBoxImage.Error);
             await ReportBugAsync("Error during batch conversion operation", ex);
         }
         finally
@@ -971,7 +992,8 @@ public partial class MainWindow : IDisposable
         }
     }
 
-    private async Task<MessageBoxResult> ShowMessageBoxAsync(string message, string title, MessageBoxButton buttons, MessageBoxImage icon)
+    private async Task<MessageBoxResult> ShowMessageBoxAsync(string message, string title, MessageBoxButton buttons,
+        MessageBoxImage icon)
     {
         try
         {
@@ -1175,7 +1197,8 @@ public partial class MainWindow : IDisposable
                               $"Release Notes:\n{latestRelease.Body}\n\n" +
                               "Would you like to go to the download page?";
 
-                var result = await ShowMessageBoxAsync(message, "Update Available", MessageBoxButton.YesNo, MessageBoxImage.Information);
+                var result = await ShowMessageBoxAsync(message, "Update Available", MessageBoxButton.YesNo,
+                    MessageBoxImage.Information);
 
                 if (result == MessageBoxResult.Yes)
                 {
@@ -1187,7 +1210,8 @@ public partial class MainWindow : IDisposable
                 LogMessage("You are using the latest version.");
                 if (isManualCheck)
                 {
-                    await ShowMessageBoxAsync("You are already using the latest version.", "No Updates Found", MessageBoxButton.OK, MessageBoxImage.Information);
+                    await ShowMessageBoxAsync("You are already using the latest version.", "No Updates Found",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
         }
@@ -1197,7 +1221,8 @@ public partial class MainWindow : IDisposable
             LogMessage(errorMessage);
             if (isManualCheck)
             {
-                await ShowMessageBoxAsync("Could not connect to update server. Please check your internet connection.", "Update Check Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                await ShowMessageBoxAsync("Could not connect to update server. Please check your internet connection.",
+                    "Update Check Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
         catch (TaskCanceledException ex)
@@ -1206,7 +1231,8 @@ public partial class MainWindow : IDisposable
             LogMessage(errorMessage);
             if (isManualCheck)
             {
-                await ShowMessageBoxAsync("Update check timed out. Please try again later.", "Update Check Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                await ShowMessageBoxAsync("Update check timed out. Please try again later.", "Update Check Failed",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
         catch (Exception ex)
@@ -1215,7 +1241,8 @@ public partial class MainWindow : IDisposable
             LogMessage(errorMessage);
             if (isManualCheck)
             {
-                await ShowMessageBoxAsync($"An error occurred while checking for updates:\n{ex.Message}", "Update Check Failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                await ShowMessageBoxAsync($"An error occurred while checking for updates:\n{ex.Message}",
+                    "Update Check Failed", MessageBoxButton.OK, MessageBoxImage.Error);
             }
 
             await ReportBugAsync("Failed to check for updates", ex);
@@ -1296,7 +1323,8 @@ public partial class MainWindow : IDisposable
                 // but don't block indefinitely
                 _logProcessorTask.Wait(TimeSpan.FromSeconds(5));
             }
-            catch (AggregateException ex) when (ex.InnerException is OperationCanceledException or TaskCanceledException)
+            catch (AggregateException ex) when
+                (ex.InnerException is OperationCanceledException or TaskCanceledException)
             {
                 // Expected during shutdown
             }
@@ -1366,7 +1394,7 @@ public partial class MainWindow : IDisposable
                 : SearchOption.TopDirectoryOnly;
 
             var files = Directory.GetFiles(verifyFolder, "*.*", searchOption)
-                .Where(file => _fileService.IsRvzFile(file))
+                .Where(file => FileService.IsRvzFile(file))
                 .ToArray();
 
             foreach (var file in files)
@@ -1383,7 +1411,8 @@ public partial class MainWindow : IDisposable
 
             VerificationFilesDataGrid.ItemsSource = _verificationFiles;
             var includeSubfolders = IncludeSubfoldersVerifyCheckBox?.IsChecked ?? false;
-            LogMessage($"Found {_verificationFiles.Count} RVZ files in verification folder {(includeSubfolders ? "(including subfolders)" : "(top level only)")}.");
+            LogMessage(
+                $"Found {_verificationFiles.Count} RVZ files in verification folder {(includeSubfolders ? "(including subfolders)" : "(top level only)")}.");
         }
         catch (Exception ex)
         {
@@ -1441,8 +1470,10 @@ public partial class MainWindow : IDisposable
             // Prevent starting multiple operations simultaneously
             if (_currentOperation != OperationType.None)
             {
-                LogMessage($"Error: Cannot start verification while a {_currentOperation.ToString().ToLowerInvariant()} operation is in progress.");
-                ShowError($"Please wait for the current {_currentOperation.ToString().ToLowerInvariant()} operation to complete before starting a new one.");
+                LogMessage(
+                    $"Error: Cannot start verification while a {_currentOperation.ToString().ToLowerInvariant()} operation is in progress.");
+                ShowError(
+                    $"Please wait for the current {_currentOperation.ToString().ToLowerInvariant()} operation to complete before starting a new one.");
                 return;
             }
 
@@ -1467,7 +1498,8 @@ public partial class MainWindow : IDisposable
                 return;
             }
 
-            var selectedFiles = _verificationFiles.Where(static f => f.IsSelected).Select(static f => f.FullPath).ToArray();
+            var selectedFiles = _verificationFiles.Where(static f => f.IsSelected).Select(static f => f.FullPath)
+                .ToArray();
             if (selectedFiles.Length == 0)
             {
                 LogMessage("Error: No files selected for verification.");
@@ -1488,10 +1520,7 @@ public partial class MainWindow : IDisposable
             }
 
             // Clear the log before starting the verification
-            await Dispatcher.InvokeAsync(() =>
-            {
-                LogViewer.Clear();
-            });
+            await Dispatcher.InvokeAsync(() => LogViewer.Clear());
 
             ResetOperationStats();
             _currentOperation = OperationType.Verification;
@@ -1508,7 +1537,10 @@ public partial class MainWindow : IDisposable
             if (_moveSuccessFiles) LogMessage("Successful files will be moved to '_Success' subfolder.");
 
             var wasCancelled = false;
-            _runningTask = Task.Run(() => PerformBatchVerificationAsync(_dolphinToolPath, selectedFiles, _moveFailedFiles, _moveSuccessFiles, token), token);
+            _runningTask =
+                Task.Run(
+                    () => PerformBatchVerificationAsync(_dolphinToolPath, selectedFiles, _moveFailedFiles,
+                        _moveSuccessFiles, token), token);
 
             try
             {
@@ -1556,7 +1588,8 @@ public partial class MainWindow : IDisposable
         }
     }
 
-    private async Task PerformBatchVerificationAsync(string dolphinToolPath, string[] files, bool moveFailed, bool moveSuccess, CancellationToken token)
+    private async Task PerformBatchVerificationAsync(string dolphinToolPath, string[] files, bool moveFailed,
+        bool moveSuccess, CancellationToken token)
     {
         try
         {
@@ -1630,7 +1663,8 @@ public partial class MainWindow : IDisposable
         catch (Exception ex)
         {
             LogMessage($"Error during batch verification: {ex.Message}");
-            await ShowMessageBoxAsync($"Error during batch verification: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            await ShowMessageBoxAsync($"Error during batch verification: {ex.Message}", "Error", MessageBoxButton.OK,
+                MessageBoxImage.Error);
             await ReportBugAsync("Error during batch verification operation", ex);
         }
         finally
@@ -1740,9 +1774,7 @@ public partial class MainWindow : IDisposable
         try
         {
             _ = Dispatcher.BeginInvoke(() =>
-            {
-                ProcessingTimeValue.Text = $"{(int)elapsed.TotalHours:D2}:{elapsed:mm\\:ss}";
-            });
+                ProcessingTimeValue.Text = $"{(int)elapsed.TotalHours:D2}:{elapsed:mm\\:ss}");
         }
         catch (TaskCanceledException)
         {
@@ -1758,10 +1790,7 @@ public partial class MainWindow : IDisposable
     {
         try
         {
-            _ = Dispatcher.BeginInvoke(() =>
-            {
-                WriteSpeedValue.Text = $"{speedInMBps:F1} MB/s";
-            });
+            _ = Dispatcher.BeginInvoke(() => WriteSpeedValue.Text = $"{speedInMBps:F1} MB/s");
         }
         catch (TaskCanceledException)
         {
@@ -1782,7 +1811,8 @@ public partial class MainWindow : IDisposable
                 var percentage = total == 0 ? 0 : (double)current / total * 100;
                 if (FindName("StatusBarText") is System.Windows.Controls.TextBlock statusBarText)
                 {
-                    statusBarText.Text = $"{operationVerb} file {current} of {total}: {currentFileName} ({percentage:F1}%)";
+                    statusBarText.Text =
+                        $"{operationVerb} file {current} of {total}: {currentFileName} ({percentage:F1}%)";
                 }
             });
         }
@@ -1843,7 +1873,8 @@ public partial class MainWindow : IDisposable
     /// Handles compression method selection change.
     /// Updates the compression level slider range based on the selected method.
     /// </summary>
-    private void CompressionMethodComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    private void CompressionMethodComboBox_SelectionChanged(object sender,
+        System.Windows.Controls.SelectionChangedEventArgs e)
     {
         if (CompressionMethodComboBox?.SelectedItem is not System.Windows.Controls.ComboBoxItem selectedItem) return;
         if (CompressionLevelSlider == null) return;
@@ -1870,7 +1901,8 @@ public partial class MainWindow : IDisposable
             }
         }
 
-        LogMessage($"Compression method changed to: {method} (level range: {CompressionLevelSlider.Minimum}-{CompressionLevelSlider.Maximum})");
+        LogMessage(
+            $"Compression method changed to: {method} (level range: {CompressionLevelSlider.Minimum}-{CompressionLevelSlider.Maximum})");
     }
 
     /// <summary>
@@ -1958,7 +1990,7 @@ public partial class MainWindow : IDisposable
             }
 
             var files = Directory.GetFiles(inputFolder, "*.*", SearchOption.TopDirectoryOnly)
-                .Where(file => _fileService.IsRvzFile(file))
+                .Where(file => FileService.IsRvzFile(file))
                 .ToArray();
 
             foreach (var file in files)
@@ -2014,8 +2046,10 @@ public partial class MainWindow : IDisposable
             // Prevent starting multiple operations simultaneously
             if (_currentOperation != OperationType.None)
             {
-                LogMessage($"Error: Cannot start extraction while a {_currentOperation.ToString().ToLowerInvariant()} operation is in progress.");
-                ShowError($"Please wait for the current {_currentOperation.ToString().ToLowerInvariant()} operation to complete before starting a new one.");
+                LogMessage(
+                    $"Error: Cannot start extraction while a {_currentOperation.ToString().ToLowerInvariant()} operation is in progress.");
+                ShowError(
+                    $"Please wait for the current {_currentOperation.ToString().ToLowerInvariant()} operation to complete before starting a new one.");
                 return;
             }
 
@@ -2048,7 +2082,8 @@ public partial class MainWindow : IDisposable
                 return;
             }
 
-            var selectedFiles = _extractionFiles.Where(static f => f.IsSelected).Select(static f => f.FullPath).ToArray();
+            var selectedFiles = _extractionFiles.Where(static f => f.IsSelected).Select(static f => f.FullPath)
+                .ToArray();
             if (selectedFiles.Length == 0)
             {
                 LogMessage("Error: No files selected for extraction.");
@@ -2097,10 +2132,7 @@ public partial class MainWindow : IDisposable
             }
 
             // Clear the log before starting the extraction
-            await Dispatcher.InvokeAsync(() =>
-            {
-                LogViewer.Clear();
-            });
+            await Dispatcher.InvokeAsync(() => LogViewer.Clear());
 
             ResetOperationStats();
             _currentOperation = OperationType.Extraction;
@@ -2119,7 +2151,10 @@ public partial class MainWindow : IDisposable
             var wasCancelled = false;
             try
             {
-                _runningTask = Task.Run(() => PerformBatchExtractionAsync(_dolphinToolPath, selectedFiles, outputFolder, deleteFiles, outputFormat, token), token);
+                _runningTask =
+                    Task.Run(
+                        () => PerformBatchExtractionAsync(_dolphinToolPath, selectedFiles, outputFolder, deleteFiles,
+                            outputFormat, token), token);
 
                 await _runningTask.ConfigureAwait(false);
             }
@@ -2157,7 +2192,8 @@ public partial class MainWindow : IDisposable
         }
     }
 
-    private async Task PerformBatchExtractionAsync(string dolphinToolPath, string[] files, string outputFolder, bool deleteFiles, string outputFormat, CancellationToken token)
+    private async Task PerformBatchExtractionAsync(string dolphinToolPath, string[] files, string outputFolder,
+        bool deleteFiles, string outputFormat, CancellationToken token)
     {
         try
         {
@@ -2232,7 +2268,8 @@ public partial class MainWindow : IDisposable
         catch (Exception ex)
         {
             LogMessage($"Error during batch extraction: {ex.Message}");
-            await ShowMessageBoxAsync($"Error during batch extraction: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            await ShowMessageBoxAsync($"Error during batch extraction: {ex.Message}", "Error", MessageBoxButton.OK,
+                MessageBoxImage.Error);
             await ReportBugAsync("Error during batch extraction operation", ex);
         }
         finally
@@ -2385,16 +2422,17 @@ public partial class MainWindow : IDisposable
             // Filter files by supported extensions based on target
             var filteredFiles = target switch
             {
-                "conversion" => files.Where(file => _fileService.IsSupportedInputFile(file)),
-                "verification" => files.Where(file => _fileService.IsRvzFile(file)),
-                "extraction" => files.Where(file => _fileService.IsSupportedExtractionInputFile(file)),
+                "conversion" => files.Where(file => FileService.IsSupportedInputFile(file)),
+                "verification" => files.Where(file => FileService.IsRvzFile(file)),
+                "extraction" => files.Where(file => FileService.IsSupportedExtractionInputFile(file)),
                 _ => files
             };
 
             var fileArray = filteredFiles.ToArray();
             if (fileArray.Length == 0)
             {
-                ShowMessageBox("No supported files were found in the drop. Please check file extensions.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+                ShowMessageBox("No supported files were found in the drop. Please check file extensions.", "Info",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -2417,7 +2455,8 @@ public partial class MainWindow : IDisposable
                 for (var i = 1; i < fileArray.Length && !string.IsNullOrEmpty(commonDirectory); i++)
                 {
                     var dir = Path.GetDirectoryName(fileArray[i]);
-                    while (!string.IsNullOrEmpty(dir) && !string.IsNullOrEmpty(commonDirectory) && !fileArray[i].StartsWith(commonDirectory, StringComparison.OrdinalIgnoreCase))
+                    while (!string.IsNullOrEmpty(dir) && !string.IsNullOrEmpty(commonDirectory) &&
+                           !fileArray[i].StartsWith(commonDirectory, StringComparison.OrdinalIgnoreCase))
                     {
                         commonDirectory = Path.GetDirectoryName(commonDirectory);
                     }
@@ -2474,7 +2513,8 @@ public partial class MainWindow : IDisposable
             var skippedCount = fileArray.Length - addedCount;
             if (skippedCount > 0)
             {
-                LogMessage($"Added {addedCount} file(s) to {target} list. {skippedCount} file(s) were already in the list.");
+                LogMessage(
+                    $"Added {addedCount} file(s) to {target} list. {skippedCount} file(s) were already in the list.");
             }
             else
             {

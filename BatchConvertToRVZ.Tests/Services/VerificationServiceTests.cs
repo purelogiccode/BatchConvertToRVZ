@@ -67,7 +67,8 @@ public class VerificationServiceTests : IDisposable
         var service = CreateService();
 
         await service.PerformBatchVerificationAsync(
-            "dolphinTool", [], false, false, static (_, _, _) => { }, static _ => { }, static _ => { }, CancellationToken.None);
+            "dolphinTool", [], false, false, static (_, _, _) => { }, static _ => { }, static _ => { },
+            CancellationToken.None);
 
         Assert.Contains(_logMessages, static m => m.Contains("No files selected for verification."));
     }
@@ -81,7 +82,8 @@ public class VerificationServiceTests : IDisposable
 
         await Assert.ThrowsAsync<OperationCanceledException>(() =>
             service.PerformBatchVerificationAsync(
-                "dolphinTool", ["test.rvz"], false, false, static (_, _, _) => { }, static _ => { }, static _ => { }, cts.Token));
+                "dolphinTool", ["test.rvz"], false, false, static (_, _, _) => { }, static _ => { }, static _ => { },
+                cts.Token));
     }
 
     [Fact]
@@ -95,7 +97,7 @@ public class VerificationServiceTests : IDisposable
 
         await service.PerformBatchVerificationAsync(
             @"C:\nonexistent_path\fake_dolphin.exe", [filePath], false, false,
-            static (_, _, _) => { }, static _ => { }, _ => { failureCount++; }, CancellationToken.None);
+            static (_, _, _) => { }, static _ => { }, _ => failureCount++, CancellationToken.None);
 
         Assert.Equal(1, failureCount);
         Assert.Contains(_logMessages, static m => m.Contains("Error verifying file"));

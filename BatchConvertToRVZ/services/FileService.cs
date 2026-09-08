@@ -5,16 +5,18 @@ namespace BatchConvertToRVZ.services;
 /// <summary>
 /// Service responsible for file operations and extension management.
 /// </summary>
-public class FileService
+public sealed class FileService
 {
     // Supported input extensions for conversion (ISO, GCM, WBFS, GCZ, WIA, NKIT.ISO, RAR, 7Z, ZIP)
-    private static readonly string[] AllSupportedInputExtensions = [".iso", ".gcm", ".wbfs", ".gcz", ".wia", ".nkit.iso", ".zip", ".7z", ".rar"];
+    private static readonly string[] AllSupportedInputExtensions =
+        [".iso", ".gcm", ".wbfs", ".gcz", ".wia", ".nkit.iso", ".zip", ".7z", ".rar"];
 
     // Archive extensions
     private static readonly string[] ArchiveExtensions = [".zip", ".7z", ".rar"];
 
     // Extensions for files inside archives that we want to extract and convert
-    private static readonly string[] PrimaryTargetExtensionsInsideArchive = [".iso", ".gcm", ".wbfs", ".rvz", ".gcz", ".wia", ".nkit.iso"];
+    private static readonly string[] PrimaryTargetExtensionsInsideArchive =
+        [".iso", ".gcm", ".wbfs", ".rvz", ".gcz", ".wia", ".nkit.iso"];
 
     // RVZ extensions for verification
     private static readonly string[] RvzExtension = [".rvz"];
@@ -26,7 +28,7 @@ public class FileService
     /// Gets archive file extensions.
     /// </summary>
     /// <returns>Array of archive extensions.</returns>
-    public string[] GetArchiveExtensions()
+    public static string[] GetArchiveExtensions()
     {
         return ArchiveExtensions;
     }
@@ -35,7 +37,7 @@ public class FileService
     /// Gets primary target extensions for files inside archives.
     /// </summary>
     /// <returns>Array of target extensions.</returns>
-    public string[] GetPrimaryTargetExtensionsInsideArchive()
+    public static string[] GetPrimaryTargetExtensionsInsideArchive()
     {
         return PrimaryTargetExtensionsInsideArchive;
     }
@@ -44,7 +46,7 @@ public class FileService
     /// Gets RVZ file extensions.
     /// </summary>
     /// <returns>Array of RVZ extensions.</returns>
-    public string[] GetRvzExtensions()
+    public static string[] GetRvzExtensions()
     {
         return RvzExtension;
     }
@@ -53,7 +55,7 @@ public class FileService
     /// Gets extraction input file extensions (RVZ, 7Z, RAR, ZIP).
     /// </summary>
     /// <returns>Array of extraction input extensions.</returns>
-    public string[] GetExtractionInputExtensions()
+    public static string[] GetExtractionInputExtensions()
     {
         return ExtractionInputExtensions;
     }
@@ -64,7 +66,7 @@ public class FileService
     /// </summary>
     /// <param name="filePath">The file path.</param>
     /// <returns>true if the file is supported; otherwise, false.</returns>
-    public bool IsSupportedInputFile(string filePath)
+    public static bool IsSupportedInputFile(string filePath)
     {
         var fileName = Path.GetFileName(filePath);
 
@@ -85,7 +87,7 @@ public class FileService
     /// </summary>
     /// <param name="filePath">The file path.</param>
     /// <returns>true if the file is a supported extraction input; otherwise, false.</returns>
-    public bool IsSupportedExtractionInputFile(string filePath)
+    public static bool IsSupportedExtractionInputFile(string filePath)
     {
         var extension = Path.GetExtension(filePath);
         return ExtractionInputExtensions.Any(ext => ext.Equals(extension, StringComparison.OrdinalIgnoreCase));
@@ -96,7 +98,7 @@ public class FileService
     /// </summary>
     /// <param name="filePath">The file path.</param>
     /// <returns>true if the file is an RVZ; otherwise, false.</returns>
-    public bool IsRvzFile(string filePath)
+    public static bool IsRvzFile(string filePath)
     {
         var extension = Path.GetExtension(filePath);
         return RvzExtension.Any(ext => ext.Equals(extension, StringComparison.OrdinalIgnoreCase));
@@ -108,7 +110,7 @@ public class FileService
     /// </summary>
     /// <param name="filePath">The file path.</param>
     /// <returns>The base file name without game extensions.</returns>
-    public string GetBaseFileNameWithoutGameExtension(string filePath)
+    public static string GetBaseFileNameWithoutGameExtension(string filePath)
     {
         var fileName = Path.GetFileName(filePath);
 

@@ -46,16 +46,17 @@ public partial class App
             .WriteTo.BugReport(BugReportServiceInstance, LogEventLevel.Warning, CultureInfo.InvariantCulture)
             .WriteTo.File(
                 logPath,
-                rollingInterval: RollingInterval.Day,
-                retainedFileCountLimit: 14,
-                fileSizeLimitBytes: 10 * 1024 * 1024, // 10 MB
-                rollOnFileSizeLimit: true,
                 restrictedToMinimumLevel: LogEventLevel.Debug,
-                formatProvider: CultureInfo.InvariantCulture,
-                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
+                formatProvider: CultureInfo.InvariantCulture, // 10 MB
+                fileSizeLimitBytes: 10 * 1024 * 1024,
+                rollingInterval: RollingInterval.Day,
+                rollOnFileSizeLimit: true,
+                retainedFileCountLimit: 14)
             .CreateLogger();
 
-        Log.Information("BatchConvertToRVZ v{Version} starting", GetType().Assembly.GetName().Version?.ToString() ?? "0.0.0");
+        Log.Information("BatchConvertToRVZ v{Version} starting",
+            GetType().Assembly.GetName().Version?.ToString() ?? "0.0.0");
 
         // Set up global exception handling
         AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
@@ -150,7 +151,8 @@ public partial class App
         {
             case IOException or TaskCanceledException or OperationCanceledException or UnauthorizedAccessException:
                 Log.Error(ex, "Application.DispatcherUnhandledException (recoverable)");
-                MessageBox.Show($"An unexpected but recoverable error occurred: {ex.Message}\n\nThe application will continue to run, but the current operation may have failed.",
+                MessageBox.Show(
+                    $"An unexpected but recoverable error occurred: {ex.Message}\n\nThe application will continue to run, but the current operation may have failed.",
                     "Recoverable Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                 e.Handled = true;
                 break;
@@ -166,7 +168,8 @@ public partial class App
             default:
                 Log.Fatal(ex, "Application.DispatcherUnhandledException (fatal)");
                 TryReportFatal("Application.DispatcherUnhandledException", ex);
-                MessageBox.Show($"A fatal error occurred and the application must close: {ex.Message}\n\nA bug report has been sent.",
+                MessageBox.Show(
+                    $"A fatal error occurred and the application must close: {ex.Message}\n\nA bug report has been sent.",
                     "Fatal Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 break;
         }

@@ -121,7 +121,8 @@ public class ExtractionServiceTests : IDisposable
         var service = CreateService();
 
         await service.PerformBatchExtractionAsync(
-            "dolphinTool", [], _tempDir, false, "iso", static (_, _, _) => { }, static _ => { }, static _ => { }, CancellationToken.None);
+            "dolphinTool", [], _tempDir, false, "iso", static (_, _, _) => { }, static _ => { }, static _ => { },
+            CancellationToken.None);
 
         Assert.Contains("No files selected for extraction.", _logMessages);
     }
@@ -132,7 +133,8 @@ public class ExtractionServiceTests : IDisposable
         var service = CreateService();
 
         await service.PerformBatchExtractionAsync(
-            "dolphinTool", ["test.rvz"], _tempDir, false, "invalid", static (_, _, _) => { }, static _ => { }, static _ => { }, CancellationToken.None);
+            "dolphinTool", ["test.rvz"], _tempDir, false, "invalid", static (_, _, _) => { }, static _ => { },
+            static _ => { }, CancellationToken.None);
 
         Assert.Contains(_logMessages, static m => m.Contains("Invalid output format"));
     }
@@ -146,7 +148,8 @@ public class ExtractionServiceTests : IDisposable
 
         await Assert.ThrowsAsync<OperationCanceledException>(() =>
             service.PerformBatchExtractionAsync(
-                "dolphinTool", ["test.rvz"], _tempDir, false, "iso", static (_, _, _) => { }, static _ => { }, static _ => { }, cts.Token));
+                "dolphinTool", ["test.rvz"], _tempDir, false, "iso", static (_, _, _) => { }, static _ => { },
+                static _ => { }, cts.Token));
     }
 
     [Fact]
@@ -157,7 +160,8 @@ public class ExtractionServiceTests : IDisposable
         File.WriteAllText(filePath, "not a disc image");
 
         await service.PerformBatchExtractionAsync(
-            @"C:\nonexistent_path\fake_dolphin.exe", [filePath], _tempDir, false, "iso", static (_, _, _) => { }, static _ => { }, static _ => { }, CancellationToken.None);
+            @"C:\nonexistent_path\fake_dolphin.exe", [filePath], _tempDir, false, "iso", static (_, _, _) => { },
+            static _ => { }, static _ => { }, CancellationToken.None);
 
         // Non-archive files go through DolphinTool conversion path
         Assert.Contains(_logMessages, static m => m.Contains("Converting to ISO"));
@@ -170,7 +174,8 @@ public class ExtractionServiceTests : IDisposable
         var archivePath = CreateTestZipArchive("game.rvz", new byte[100]);
 
         await service.PerformBatchExtractionAsync(
-            @"C:\nonexistent_path\fake_dolphin.exe", [archivePath], _tempDir, false, "iso", static (_, _, _) => { }, static _ => { }, static _ => { }, CancellationToken.None);
+            @"C:\nonexistent_path\fake_dolphin.exe", [archivePath], _tempDir, false, "iso", static (_, _, _) => { },
+            static _ => { }, static _ => { }, CancellationToken.None);
 
         Assert.Contains(_logMessages, static m => m.Contains("Preparing for batch extraction"));
         Assert.Contains(_logMessages, static m => m.Contains("Processing:"));
@@ -185,7 +190,8 @@ public class ExtractionServiceTests : IDisposable
         var failureCount = 0;
 
         await service.PerformBatchExtractionAsync(
-            "dolphinTool", [archivePath], _tempDir, false, "iso", static (_, _, _) => { }, static _ => { }, _ => { failureCount++; }, CancellationToken.None);
+            "dolphinTool", [archivePath], _tempDir, false, "iso", static (_, _, _) => { }, static _ => { },
+            _ => failureCount++, CancellationToken.None);
 
         Assert.Equal(1, failureCount);
         Assert.Contains(_logMessages, static m => m.Contains("falling back to 7za.exe"));
@@ -198,7 +204,8 @@ public class ExtractionServiceTests : IDisposable
         var archivePath = CreateCorrupt7ZipArchive();
 
         await service.PerformBatchExtractionAsync(
-            "dolphinTool", [archivePath], _tempDir, false, "iso", static (_, _, _) => { }, static _ => { }, static _ => { }, CancellationToken.None);
+            "dolphinTool", [archivePath], _tempDir, false, "iso", static (_, _, _) => { }, static _ => { },
+            static _ => { }, CancellationToken.None);
 
         Assert.Contains(_logMessages, static m => m.Contains("File may be corrupt") || m.Contains("7za"));
     }
@@ -213,7 +220,8 @@ public class ExtractionServiceTests : IDisposable
         var archivePath = CreateTestZipArchive("game.rvz", rvzContent);
 
         await service.PerformBatchExtractionAsync(
-            @"C:\nonexistent_path\fake_dolphin.exe", [archivePath], _tempDir, false, "iso", static (_, _, _) => { }, static _ => { }, static _ => { }, CancellationToken.None);
+            @"C:\nonexistent_path\fake_dolphin.exe", [archivePath], _tempDir, false, "iso", static (_, _, _) => { },
+            static _ => { }, static _ => { }, CancellationToken.None);
 
         // Extraction should succeed even if DolphinTool conversion fails
         Assert.Contains(_logMessages, static m => m.Contains("Extracted"));
@@ -229,7 +237,8 @@ public class ExtractionServiceTests : IDisposable
         var failureCount = 0;
 
         await service.PerformBatchExtractionAsync(
-            "dolphinTool", [archivePath], _tempDir, false, "iso", static (_, _, _) => { }, _ => { successCount++; }, _ => { failureCount++; }, CancellationToken.None);
+            "dolphinTool", [archivePath], _tempDir, false, "iso", static (_, _, _) => { }, _ => successCount++,
+            _ => failureCount++, CancellationToken.None);
 
         Assert.Equal(0, successCount);
         Assert.Equal(1, failureCount);
@@ -265,7 +274,8 @@ public class ExtractionServiceTests : IDisposable
         var failureCount = 0;
 
         await service.PerformBatchExtractionAsync(
-            @"C:\nonexistent_path\fake_dolphin.exe", [rvzPath], _tempDir, false, "iso", static (_, _, _) => { }, _ => { successCount++; }, _ => { failureCount++; }, CancellationToken.None);
+            @"C:\nonexistent_path\fake_dolphin.exe", [rvzPath], _tempDir, false, "iso", static (_, _, _) => { },
+            _ => successCount++, _ => failureCount++, CancellationToken.None);
 
         Assert.Contains(_logMessages, static m => m.Contains("Falling back to DolphinTool"));
         Assert.Equal(0, successCount);
@@ -290,7 +300,8 @@ public class ExtractionServiceTests : IDisposable
             File.WriteAllText(filePath, "not a disc image");
 
             await service.PerformBatchExtractionAsync(
-                @"C:\nonexistent_path\fake_dolphin.exe", [filePath], _tempDir, false, format, static (_, _, _) => { }, static _ => { }, static _ => { }, CancellationToken.None);
+                @"C:\nonexistent_path\fake_dolphin.exe", [filePath], _tempDir, false, format, static (_, _, _) => { },
+                static _ => { }, static _ => { }, CancellationToken.None);
 
             // Should not log "Invalid output format" for valid formats
             Assert.DoesNotContain(_logMessages, static m => m.Contains("Invalid output format"));

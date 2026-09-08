@@ -111,7 +111,8 @@ public class ConversionServiceTests : IDisposable
         var service = CreateService();
 
         await service.PerformBatchConversionAsync(
-            "dolphinTool", [], _tempDir, false, "zstd", 5, 131072, static (_, _, _) => { }, static _ => { }, static _ => { }, CancellationToken.None);
+            "dolphinTool", [], _tempDir, false, "zstd", 5, 131072, static (_, _, _) => { }, static _ => { },
+            static _ => { }, CancellationToken.None);
 
         Assert.Contains("No files selected for conversion.", _logMessages);
     }
@@ -125,7 +126,8 @@ public class ConversionServiceTests : IDisposable
 
         await Assert.ThrowsAsync<OperationCanceledException>(() =>
             service.PerformBatchConversionAsync(
-                "dolphinTool", ["test.7z"], _tempDir, false, "zstd", 5, 131072, static (_, _, _) => { }, static _ => { }, static _ => { }, cts.Token));
+                "dolphinTool", ["test.7z"], _tempDir, false, "zstd", 5, 131072, static (_, _, _) => { },
+                static _ => { }, static _ => { }, cts.Token));
     }
 
     [Fact]
@@ -139,7 +141,8 @@ public class ConversionServiceTests : IDisposable
         var failureCount = 0;
 
         await service.PerformBatchConversionAsync(
-            @"C:\nonexistent_path\fake_dolphin.exe", [filePath], _tempDir, false, "zstd", 5, 131072, static (_, _, _) => { }, _ => { successCount++; }, _ => { failureCount++; }, CancellationToken.None);
+            @"C:\nonexistent_path\fake_dolphin.exe", [filePath], _tempDir, false, "zstd", 5, 131072,
+            static (_, _, _) => { }, _ => successCount++, _ => failureCount++, CancellationToken.None);
 
         Assert.Equal(0, successCount);
         Assert.Equal(1, failureCount);
@@ -154,7 +157,8 @@ public class ConversionServiceTests : IDisposable
         var failureCount = 0;
 
         await service.PerformBatchConversionAsync(
-            "dolphinTool", [archivePath], _tempDir, false, "zstd", 5, 131072, static (_, _, _) => { }, static _ => { }, _ => { failureCount++; }, CancellationToken.None);
+            "dolphinTool", [archivePath], _tempDir, false, "zstd", 5, 131072, static (_, _, _) => { }, static _ => { },
+            _ => failureCount++, CancellationToken.None);
 
         Assert.Equal(1, failureCount);
         Assert.Contains(_logMessages, static m => m.Contains("falling back to 7za.exe"));
@@ -167,7 +171,8 @@ public class ConversionServiceTests : IDisposable
         var archivePath = CreateCorrupt7ZipArchive();
 
         await service.PerformBatchConversionAsync(
-            "dolphinTool", [archivePath], _tempDir, false, "zstd", 5, 131072, static (_, _, _) => { }, static _ => { }, static _ => { }, CancellationToken.None);
+            "dolphinTool", [archivePath], _tempDir, false, "zstd", 5, 131072, static (_, _, _) => { }, static _ => { },
+            static _ => { }, CancellationToken.None);
 
         Assert.Contains(_logMessages, static m => m.Contains("File may be corrupt") || m.Contains("7za"));
     }
@@ -190,7 +195,8 @@ public class ConversionServiceTests : IDisposable
         var failureCount = 0;
 
         await service.PerformBatchConversionAsync(
-            @"C:\nonexistent_path\fake_dolphin.exe", [archivePath], _tempDir, false, "zstd", 5, 131072, static (_, _, _) => { }, _ => { successCount++; }, _ => { failureCount++; }, CancellationToken.None);
+            @"C:\nonexistent_path\fake_dolphin.exe", [archivePath], _tempDir, false, "zstd", 5, 131072,
+            static (_, _, _) => { }, _ => successCount++, _ => failureCount++, CancellationToken.None);
 
         // Extraction should succeed and the conversion should be done natively by RVZSharp,
         // without needing DolphinTool
@@ -214,7 +220,8 @@ public class ConversionServiceTests : IDisposable
         var failureCount = 0;
 
         await service.PerformBatchConversionAsync(
-            @"C:\nonexistent_path\fake_dolphin.exe", [archivePath], _tempDir, false, "zstd", 5, 131072, static (_, _, _) => { }, _ => { successCount++; }, _ => { failureCount++; }, CancellationToken.None);
+            @"C:\nonexistent_path\fake_dolphin.exe", [archivePath], _tempDir, false, "zstd", 5, 131072,
+            static (_, _, _) => { }, _ => successCount++, _ => failureCount++, CancellationToken.None);
 
         Assert.Contains(_logMessages, static m => m.Contains("Falling back to DolphinTool"));
         Assert.Equal(0, successCount);
@@ -233,7 +240,8 @@ public class ConversionServiceTests : IDisposable
         var successCount = 0;
 
         await service.PerformBatchConversionAsync(
-            @"C:\nonexistent_path\fake_dolphin.exe", [archivePath], _tempDir, false, "zstd", 5, 131072, static (_, _, _) => { }, _ => { successCount++; }, static _ => { }, CancellationToken.None);
+            @"C:\nonexistent_path\fake_dolphin.exe", [archivePath], _tempDir, false, "zstd", 5, 131072,
+            static (_, _, _) => { }, _ => successCount++, static _ => { }, CancellationToken.None);
 
         Assert.Equal(1, successCount);
         Assert.Contains(_logMessages, static m => m.Contains("Found RVZ file inside archive"));
@@ -249,7 +257,8 @@ public class ConversionServiceTests : IDisposable
         var failureCount = 0;
 
         await service.PerformBatchConversionAsync(
-            "dolphinTool", [archivePath], _tempDir, false, "zstd", 5, 131072, static (_, _, _) => { }, _ => { successCount++; }, _ => { failureCount++; }, CancellationToken.None);
+            "dolphinTool", [archivePath], _tempDir, false, "zstd", 5, 131072, static (_, _, _) => { },
+            _ => successCount++, _ => failureCount++, CancellationToken.None);
 
         Assert.Equal(0, successCount);
         Assert.Equal(1, failureCount);
@@ -279,7 +288,8 @@ public class ConversionServiceTests : IDisposable
         var archivePath = CreateTestZipArchive("game.iso", new byte[100]);
 
         await service.PerformBatchConversionAsync(
-            @"C:\nonexistent_path\fake_dolphin.exe", [archivePath], _tempDir, false, "zstd", 5, 131072, static (_, _, _) => { }, static _ => { }, static _ => { }, CancellationToken.None);
+            @"C:\nonexistent_path\fake_dolphin.exe", [archivePath], _tempDir, false, "zstd", 5, 131072,
+            static (_, _, _) => { }, static _ => { }, static _ => { }, CancellationToken.None);
 
         Assert.Contains(_logMessages, static m => m.Contains("Preparing for batch conversion"));
         Assert.Contains(_logMessages, static m => m.Contains("Processing:"));

@@ -58,7 +58,8 @@ public partial class AboutWindow
             // Notify developer
             if (App.BugReportServiceInstance != null)
             {
-                _ = App.BugReportServiceInstance.SendBugReportAsync($"Error opening URL: {e.Uri.AbsoluteUri}. Exception: {ex.Message}");
+                _ = App.BugReportServiceInstance.SendBugReportAsync(
+                    $"Error opening URL: {e.Uri.AbsoluteUri}. Exception: {ex.Message}");
             }
 
             // Notify user

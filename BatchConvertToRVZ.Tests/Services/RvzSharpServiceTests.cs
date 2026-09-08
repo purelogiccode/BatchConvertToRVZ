@@ -74,7 +74,7 @@ public class RvzSharpServiceTests : IDisposable
     {
         var inputFile = Path.Combine(_tempDir, fileName);
 
-        Assert.True(_service.CanEncode(inputFile, compressionMethod));
+        Assert.True(RvzSharpService.CanEncode(inputFile, compressionMethod));
     }
 
     [Theory]
@@ -86,7 +86,7 @@ public class RvzSharpServiceTests : IDisposable
     {
         var inputFile = Path.Combine(_tempDir, fileName);
 
-        Assert.False(_service.CanEncode(inputFile, compressionMethod));
+        Assert.False(RvzSharpService.CanEncode(inputFile, compressionMethod));
     }
 
     [Theory]
@@ -96,7 +96,7 @@ public class RvzSharpServiceTests : IDisposable
     {
         var inputFile = Path.Combine(_tempDir, fileName);
 
-        Assert.False(_service.CanEncode(inputFile, compressionMethod));
+        Assert.False(RvzSharpService.CanEncode(inputFile, compressionMethod));
     }
 
     [Theory]
@@ -108,7 +108,7 @@ public class RvzSharpServiceTests : IDisposable
     {
         var inputFile = Path.Combine(_tempDir, fileName);
 
-        Assert.Equal(expected, _service.CanDecode(inputFile));
+        Assert.Equal(expected, RvzSharpService.CanDecode(inputFile));
     }
 
     [Fact]

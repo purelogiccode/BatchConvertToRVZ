@@ -99,7 +99,16 @@ public class VerificationService
         {
             _logger.Information("{Message:l}", $"Verifying: {fileName}...");
 
-            tempWorkingDirectory = Path.Combine(Path.GetTempPath(), "BatchConvertToRVZ_DolphinTool_Temp_" + Path.GetRandomFileName());
+            if (!ProcessHelper.ExecutableExists(dolphinToolPath))
+            {
+                _logger.Error("DolphinTool is missing. {Message:l}",
+                    ProcessHelper.GetMissingExecutableMessage(dolphinToolPath));
+                throw new FileNotFoundException(ProcessHelper.GetMissingExecutableMessage(dolphinToolPath),
+                    dolphinToolPath);
+            }
+
+            tempWorkingDirectory = Path.Combine(Path.GetTempPath(),
+                "BatchConvertToRVZ_DolphinTool_Temp_" + Path.GetRandomFileName());
             Directory.CreateDirectory(tempWorkingDirectory);
 
             process.StartInfo = new ProcessStartInfo
@@ -224,7 +233,8 @@ public class VerificationService
         return verificationResult;
     }
 
-    private async Task MoveFileToSubfolderAsync(string sourceFilePath, string baseFolder, string subfolderName, CancellationToken cancellationToken)
+    private async Task MoveFileToSubfolderAsync(string sourceFilePath, string baseFolder, string subfolderName,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -276,7 +286,7 @@ public class VerificationService
                 await Task.Run(() => Directory.Delete(path, true));
             }
         }
-        catch (Exception)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
         {
             // Silently ignore cleanup errors
         }
