@@ -1,7 +1,8 @@
 using System.Diagnostics;
 using System.Reflection;
-using System.Windows;
-using System.Windows.Navigation;
+using Avalonia.Controls;
+using Avalonia.Input;
+using BatchConvertToRVZ.dialogs;
 
 namespace BatchConvertToRVZ;
 
@@ -9,7 +10,7 @@ namespace BatchConvertToRVZ;
 /// Interaction logic for the About window.
 /// Displays application version and credits information.
 /// </summary>
-public partial class AboutWindow
+public partial class AboutWindow : Window
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="AboutWindow"/> class.
@@ -30,28 +31,30 @@ public partial class AboutWindow
             }
 
             // Notify user and rethrow to prevent window from opening in invalid state
-            MessageBox.Show($"Error initializing About window: {ex.Message}",
+            _ = MessageBox.ShowAsync(null, $"Error initializing About window: {ex.Message}",
                 "Initialization Error", MessageBoxButton.OK, MessageBoxImage.Error);
             throw;
         }
     }
 
-    private void CloseButton_Click(object sender, RoutedEventArgs e)
+    private void CloseButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         Close();
     }
 
-    private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
+    private void Hyperlink_RequestNavigate(object? sender, PointerPressedEventArgs e)
     {
+        if (sender is not TextBlock { Tag: string url }) return;
+
+        e.Handled = true;
+
         try
         {
-            var process = Process.Start(new ProcessStartInfo
+            using var process = Process.Start(new ProcessStartInfo
             {
-                FileName = e.Uri.AbsoluteUri,
+                FileName = url,
                 UseShellExecute = true
             });
-
-            process?.Dispose();
         }
         catch (Exception ex)
         {
@@ -59,19 +62,13 @@ public partial class AboutWindow
             if (App.BugReportServiceInstance != null)
             {
                 _ = App.BugReportServiceInstance.SendBugReportAsync(
-                    $"Error opening URL: {e.Uri.AbsoluteUri}. Exception: {ex.Message}");
+                    $"Error opening URL: {url}. Exception: {ex.Message}");
             }
 
             // Notify user
-            Application.Current?.Dispatcher.Invoke(() =>
-            {
-                MessageBox.Show($"Unable to open link: {ex.Message}",
-                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            });
+            _ = MessageBox.ShowAsync(null, $"Unable to open link: {ex.Message}",
+                "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
-
-        // Mark the event as handled
-        e.Handled = true;
     }
 
     private static string GetApplicationVersion()

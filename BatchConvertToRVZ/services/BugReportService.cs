@@ -185,7 +185,7 @@ public class BugReportService : IDisposable
     }
 
     /// <summary>
-    /// Gets a friendly Windows version name
+    /// Gets a friendly operating system version name
     /// </summary>
     internal static string GetWindowsVersion()
     {
@@ -206,9 +206,21 @@ public class BugReportService : IDisposable
                 case 6 when version.Minor == 1:
                     return "Windows 7";
             }
+
+            return "Unknown Windows Version";
         }
 
-        return "Unknown Windows Version";
+        if (OperatingSystem.IsLinux())
+        {
+            return "Linux";
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            return "macOS";
+        }
+
+        return "Unknown OS";
     }
 
     public void Dispose()

@@ -86,7 +86,17 @@ public class ExtractionServiceTests : IDisposable
     {
         var result = ExtractionService.Get7ZipExecutablePath();
 
-        Assert.EndsWith("7za.exe", result);
+        Assert.Contains(GetExpected7ZipExecutableName(), result);
+    }
+
+    private static string GetExpected7ZipExecutableName()
+    {
+        var suffix = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture
+            == System.Runtime.InteropServices.Architecture.Arm64
+            ? "_arm64"
+            : string.Empty;
+        var extension = OperatingSystem.IsWindows() ? ".exe" : string.Empty;
+        return $"7za{suffix}{extension}";
     }
 
     [Fact]

@@ -37,9 +37,15 @@ internal static class ProcessHelper
     /// Suppresses error dialogs (MessageBox) from child processes such as DolphinTool.
     /// This prevents blocking dialogs like "Ignore and continue?" from halting batch operations.
     /// The error mode is inherited by child processes.
+    /// This is a Windows-only feature; it is a no-op on other operating systems.
     /// </summary>
     internal static void SuppressErrorDialogs()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         try
         {
             _ = SetProcessErrorMode(SemFailcriticalerrors | SemNogpfaulterrorbox | SemNoopenfileerrorbox);
@@ -47,6 +53,36 @@ internal static class ProcessHelper
         catch
         {
             // SetProcessErrorMode may not be available on all Windows versions
+        }
+    }
+
+    /// <summary>
+    /// Ensures that a bundled helper executable can be executed on Unix-like systems
+    /// by adding the execute permission bits when they are missing. This matters because
+    /// ZIP archives do not preserve the executable bit on Linux and macOS.
+    /// This is a no-op on Windows.
+    /// </summary>
+    internal static void EnsureExecutable(string? exePath)
+    {
+        if (OperatingSystem.IsWindows() || string.IsNullOrWhiteSpace(exePath) || !File.Exists(exePath))
+        {
+            return;
+        }
+
+        try
+        {
+            const UnixFileMode executeBits =
+                UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
+
+            var mode = File.GetUnixFileMode(exePath);
+            if ((mode & executeBits) != executeBits)
+            {
+                File.SetUnixFileMode(exePath, mode | executeBits);
+            }
+        }
+        catch
+        {
+            // Ignore permission errors; starting the process will report a clearer error.
         }
     }
 }

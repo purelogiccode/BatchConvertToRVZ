@@ -107,6 +107,8 @@ public class VerificationService
                     dolphinToolPath);
             }
 
+            ProcessHelper.EnsureExecutable(dolphinToolPath);
+
             tempWorkingDirectory = Path.Combine(Path.GetTempPath(),
                 "BatchConvertToRVZ_DolphinTool_Temp_" + Path.GetRandomFileName());
             Directory.CreateDirectory(tempWorkingDirectory);

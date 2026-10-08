@@ -333,6 +333,8 @@ public class ConversionService
             return false;
         }
 
+        ProcessHelper.EnsureExecutable(dolphinToolPath);
+
         using var process = new Process();
 
         try
@@ -584,6 +586,8 @@ public class ConversionService
                 return (false, string.Empty, string.Empty, "7za executable not found.", false);
             }
 
+            ProcessHelper.EnsureExecutable(sevenZipPath);
+
             _logger.Information("{Message:l}", $"Extracting with 7za.exe to: {tempDir}");
 
             using var process = new Process();
@@ -681,13 +685,12 @@ public class ConversionService
     internal static string Get7ZipExecutablePath()
     {
         var architecture = RuntimeInformation.ProcessArchitecture;
-        var exeName = architecture switch
-        {
-            Architecture.Arm64 => "7za_arm64.exe",
-            _ => "7za.exe"
-        };
+        var suffix = architecture == Architecture.Arm64 ? "_arm64" : string.Empty;
 
-        return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, exeName);
+        // Windows releases ship 7za(.exe); Linux/macOS builds use extension-less binaries.
+        var extension = OperatingSystem.IsWindows() ? ".exe" : string.Empty;
+
+        return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"7za{suffix}{extension}");
     }
 
     private Task<bool> TryDeleteFileAsync(string filePath, string description)

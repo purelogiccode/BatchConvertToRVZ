@@ -1,14 +1,15 @@
 using System.Globalization;
-using System.IO;
-using System.Windows;
-using System.Windows.Threading;
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using BatchConvertToRVZ.services;
 using Serilog;
 using Serilog.Events;
 
 namespace BatchConvertToRVZ;
 
-public partial class App
+public class App : Application
 {
     // Bug Report API configuration
     private const string BugReportApiUrl = "https://www.purelogiccode.com/bugreport/api/send-bug-report";
@@ -60,16 +61,24 @@ public partial class App
 
         // Set up global exception handling
         AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
-        DispatcherUnhandledException += App_DispatcherUnhandledException;
+        Dispatcher.UIThread.UnhandledException += App_DispatcherUnhandledException;
         TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
-
-        // Register the Exit event handler
-        Exit += App_Exit;
     }
 
-    protected override void OnStartup(StartupEventArgs e)
+    public override void Initialize()
     {
-        base.OnStartup(e);
+        AvaloniaXamlLoader.Load(this);
+    }
+
+    public override void OnFrameworkInitializationCompleted()
+    {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.MainWindow = new MainWindow();
+            desktop.Exit += App_Exit;
+        }
+
+        base.OnFrameworkInitializationCompleted();
 
         // Send usage statistics on application launch
         if (StatsServiceInstance != null)
@@ -118,7 +127,7 @@ public partial class App
         }
     }
 
-    private void App_Exit(object sender, ExitEventArgs e)
+    private static void App_Exit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {
         // Dispose of the services
         BugReportServiceInstance?.Dispose();
@@ -129,7 +138,7 @@ public partial class App
 
         // Unregister event handlers to prevent memory leaks
         AppDomain.CurrentDomain.UnhandledException -= CurrentDomain_UnhandledException;
-        DispatcherUnhandledException -= App_DispatcherUnhandledException;
+        Dispatcher.UIThread.UnhandledException -= App_DispatcherUnhandledException;
         TaskScheduler.UnobservedTaskException -= TaskScheduler_UnobservedTaskException;
     }
 
@@ -143,7 +152,7 @@ public partial class App
         }
     }
 
-    private static void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    private static void App_DispatcherUnhandledException(object? sender, DispatcherUnhandledExceptionEventArgs e)
     {
         var ex = e.Exception;
 
@@ -151,27 +160,30 @@ public partial class App
         {
             case IOException or TaskCanceledException or OperationCanceledException or UnauthorizedAccessException:
                 Log.Error(ex, "Application.DispatcherUnhandledException (recoverable)");
-                MessageBox.Show(
+                _ = ShowMessageBoxSafelyAsync(
                     $"An unexpected but recoverable error occurred: {ex.Message}\n\nThe application will continue to run, but the current operation may have failed.",
-                    "Recoverable Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                e.Handled = true;
-                break;
-            case UriFormatException:
-                // WPF text-layout crash on machines with broken/missing system fonts: the
-                // font cache fails to parse a font URI while measuring a TextBlock
-                // (MS.Internal.FontCache.Util.CombineUriWithFaceIndex). The affected element
-                // simply does not render; keep the application running. No dialog: the
-                // failure can repeat on every layout pass.
-                Log.Error(ex, "Application.DispatcherUnhandledException (font rendering, handled)");
+                    "Recoverable Error");
                 e.Handled = true;
                 break;
             default:
                 Log.Fatal(ex, "Application.DispatcherUnhandledException (fatal)");
                 TryReportFatal("Application.DispatcherUnhandledException", ex);
-                MessageBox.Show(
+                _ = ShowMessageBoxSafelyAsync(
                     $"A fatal error occurred and the application must close: {ex.Message}\n\nA bug report has been sent.",
-                    "Fatal Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    "Fatal Error");
                 break;
+        }
+    }
+
+    private static async Task ShowMessageBoxSafelyAsync(string message, string title)
+    {
+        try
+        {
+            await dialogs.MessageBox.ShowAsync(null, message, title);
+        }
+        catch
+        {
+            // Ignore failures while reporting an error
         }
     }
 

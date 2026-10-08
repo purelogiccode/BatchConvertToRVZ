@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
@@ -5,9 +6,14 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Channels;
-using System.Windows;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
+using Avalonia.Threading;
+using BatchConvertToRVZ.dialogs;
 using BatchConvertToRVZ.services;
-using Microsoft.Win32;
 using Serilog;
 using IDisposable = System.IDisposable;
 
@@ -17,7 +23,7 @@ namespace BatchConvertToRVZ;
 /// Interaction logic for the MainWindow.
 /// Provides batch conversion and verification of game disc images to RVZ format.
 /// </summary>
-public partial class MainWindow : IDisposable
+public partial class MainWindow : Window, IDisposable
 {
     private bool _disposed;
     private volatile bool _isClosing;
@@ -61,7 +67,7 @@ public partial class MainWindow : IDisposable
     private int _successCount;
     private int _failureCount;
     private readonly Stopwatch _operationTimer = new();
-    private System.Windows.Threading.DispatcherTimer? _processingTimeUpdateTimer;
+    private DispatcherTimer? _processingTimeUpdateTimer;
     private readonly Lock _statsLock = new();
 
     // Write speed calculation
@@ -85,9 +91,9 @@ public partial class MainWindow : IDisposable
     private OperationType _currentOperation = OperationType.None;
 
     // File lists for UI
-    private readonly BindingList<Models.FileItem> _conversionFiles = new();
-    private readonly BindingList<Models.FileItem> _verificationFiles = new();
-    private readonly BindingList<Models.FileItem> _extractionFiles = new();
+    private readonly ObservableCollection<Models.FileItem> _conversionFiles = new();
+    private readonly ObservableCollection<Models.FileItem> _verificationFiles = new();
+    private readonly ObservableCollection<Models.FileItem> _extractionFiles = new();
 
     private void UpdateOverallProgress()
     {
@@ -106,7 +112,7 @@ public partial class MainWindow : IDisposable
                 failureCount = _failureCount;
             }
 
-            _ = Dispatcher.BeginInvoke(() =>
+            Dispatcher.UIThread.Post(() =>
             {
                 var completed = successCount + failureCount;
                 ProgressBar.Value = Math.Min(completed, totalToProcess);
@@ -125,13 +131,7 @@ public partial class MainWindow : IDisposable
     {
         try
         {
-            _ = Dispatcher.BeginInvoke(() =>
-            {
-                if (FindName("StatusBarText") is System.Windows.Controls.TextBlock statusBarText)
-                {
-                    statusBarText.Text = status;
-                }
-            });
+            Dispatcher.UIThread.Post(() => StatusBarText.Text = status);
         }
         catch (TaskCanceledException)
         {
@@ -147,6 +147,7 @@ public partial class MainWindow : IDisposable
     // Log batching
     private readonly Channel<string> _logChannel = Channel.CreateUnbounded<string>();
     private readonly Task? _logProcessorTask;
+    private int _logLineCount;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindow"/> class.
@@ -195,7 +196,7 @@ public partial class MainWindow : IDisposable
 
     private void InitializeProcessingTimeTimer()
     {
-        _processingTimeUpdateTimer = new System.Windows.Threading.DispatcherTimer
+        _processingTimeUpdateTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(1)
         };
@@ -218,7 +219,7 @@ public partial class MainWindow : IDisposable
         {
             var errorMessage = $"Unsupported platform architecture. {ex.Message}";
             LogMessage($"ERROR: {errorMessage}");
-            ShowError(errorMessage);
+            _ = ShowErrorAsync(errorMessage);
             _ = Task.Run(async () =>
             {
                 try
@@ -246,7 +247,7 @@ public partial class MainWindow : IDisposable
             var errorMessage =
                 $"The following critical file(s) are missing: {missingFilesString}.\n\nThe application cannot function without them. Please ensure all files from the release archive are in the same folder as this application.";
             LogMessage($"WARNING: {errorMessage.ReplaceLineEndings(" ")}");
-            ShowError(errorMessage);
+            _ = ShowErrorAsync(errorMessage);
         }
         else
         {
@@ -269,16 +270,19 @@ public partial class MainWindow : IDisposable
     private static string GetDolphinToolExecutableName()
     {
         var architecture = RuntimeInformation.ProcessArchitecture;
-        // ReSharper disable once SwitchExpressionHandlesSomeKnownEnumValuesWithExceptionInDefault
-        return architecture switch
+        var suffix = architecture switch
         {
-            Architecture.X64 => "DolphinTool.exe",
-            Architecture.Arm64 => "DolphinTool_arm64.exe",
+            Architecture.X64 => string.Empty,
+            Architecture.Arm64 => "_arm64",
             _ => throw new PlatformNotSupportedException($"Unsupported architecture: {architecture}")
         };
+
+        // Windows releases ship DolphinTool(.exe); Linux/macOS builds use extension-less binaries.
+        var extension = OperatingSystem.IsWindows() ? ".exe" : string.Empty;
+        return $"DolphinTool{suffix}{extension}";
     }
 
-    private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    private async void MainWindow_Loaded(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -297,13 +301,13 @@ public partial class MainWindow : IDisposable
         _ = Task.Run(Dispose);
     }
 
-    private void Window_Closing(object? sender, CancelEventArgs e)
+    private void Window_Closing(object? sender, WindowClosingEventArgs e)
     {
         lock (_closingLock)
         {
             if (_isClosing)
             {
-                // Allow the close to proceed — this is triggered by Application.Current.Shutdown()
+                // Allow the close to proceed — this is triggered by Application shutdown
                 // after a running operation was cancelled. Do NOT cancel here.
                 return;
             }
@@ -332,7 +336,7 @@ public partial class MainWindow : IDisposable
                 }
 
                 // Wait up to 5 seconds for the running task to finish
-                await Task.WhenAny(_runningTask, Task.Delay(5000));
+                await Task.WhenAny(_runningTask!, Task.Delay(5000));
             }
             catch
             {
@@ -341,11 +345,19 @@ public partial class MainWindow : IDisposable
             finally
             {
                 // Force-exit on the UI thread regardless of task state
-                _ = Dispatcher.BeginInvoke(static () =>
+                Dispatcher.UIThread.Post(() =>
                 {
                     try
                     {
-                        Application.Current?.Shutdown();
+                        if (Application.Current?.ApplicationLifetime is
+                            Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+                        {
+                            desktop.Shutdown();
+                        }
+                        else
+                        {
+                            Environment.Exit(0);
+                        }
                     }
                     catch
                     {
@@ -360,11 +372,11 @@ public partial class MainWindow : IDisposable
         });
     }
 
-    private async void Window_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    private async void Window_KeyDown(object? sender, KeyEventArgs e)
     {
         try
         {
-            if (e.Key != System.Windows.Input.Key.F8) return;
+            if (e.Key != Key.F8) return;
 
             e.Handled = true;
 
@@ -416,6 +428,18 @@ public partial class MainWindow : IDisposable
         Log.Information("{Message:l}", message);
     }
 
+    private void AppendLogText(string text)
+    {
+        LogViewer.Text = string.Concat(LogViewer.Text, text);
+        _logLineCount += text.Count(static c => c == '\n');
+    }
+
+    private void ClearLogViewer()
+    {
+        LogViewer.Text = string.Empty;
+        _logLineCount = 0;
+    }
+
     private async Task ProcessLogsAsync()
     {
         var batch = new List<string>();
@@ -444,31 +468,31 @@ public partial class MainWindow : IDisposable
                     {
                         if (Application.Current is null) return;
 
-                        await Application.Current.Dispatcher.InvokeAsync(() =>
+                        await Dispatcher.UIThread.InvokeAsync(() =>
                         {
                             if (_disposed) return;
 
                             // Only scroll to end if the user is already at the bottom (or very close to it)
                             // This allows users to scroll up to read previous logs without being snapped back
-                            var isAtBottom = LogViewer.VerticalOffset + LogViewer.ViewportHeight >=
-                                             LogViewer.ExtentHeight - 10;
+                            var isAtBottom = LogViewerScrollViewer.Offset.Y + LogViewerScrollViewer.Viewport.Height >=
+                                             LogViewerScrollViewer.Extent.Height - 10;
 
-                            LogViewer.AppendText(combinedLogs);
+                            AppendLogText(combinedLogs);
 
                             // Efficiently clear log if it exceeds the limit to prevent UI freeze
-                            if (LogViewer.LineCount > MaxLogLines)
+                            if (_logLineCount > MaxLogLines)
                             {
-                                LogViewer.Clear();
-                                LogViewer.AppendText(
+                                ClearLogViewer();
+                                AppendLogText(
                                     $"[{DateTime.Now:HH:mm:ss.fff}] --- Log cleared (exceeded {MaxLogLines} lines) to prevent UI freeze ---{Environment.NewLine}");
                                 isAtBottom = true; // Always scroll to end after clear
                             }
 
                             if (isAtBottom)
                             {
-                                LogViewer.ScrollToEnd();
+                                LogViewerScrollViewer.ScrollToEnd();
                             }
-                        }, System.Windows.Threading.DispatcherPriority.Background);
+                        }, DispatcherPriority.Background);
                     }
                     catch (Exception ex)
                     {
@@ -492,9 +516,9 @@ public partial class MainWindow : IDisposable
         }
     }
 
-    private void BrowseInputButton_Click(object sender, RoutedEventArgs e)
+    private async void BrowseInputButton_Click(object? sender, RoutedEventArgs e)
     {
-        var inputFolder = SelectFolder("Select the folder containing ISO files or archives to convert");
+        var inputFolder = await SelectFolderAsync("Select the folder containing ISO files or archives to convert");
         if (string.IsNullOrEmpty(inputFolder)) return;
 
         InputFolderTextBox.Text = inputFolder;
@@ -558,16 +582,16 @@ public partial class MainWindow : IDisposable
         }
     }
 
-    private void BrowseOutputButton_Click(object sender, RoutedEventArgs e)
+    private async void BrowseOutputButton_Click(object? sender, RoutedEventArgs e)
     {
-        var outputFolder = SelectFolder("Select the output folder where RVZ files will be saved");
+        var outputFolder = await SelectFolderAsync("Select the output folder where RVZ files will be saved");
         if (string.IsNullOrEmpty(outputFolder)) return;
 
         OutputFolderTextBox.Text = outputFolder;
         LogMessage($"Output folder selected: {outputFolder}");
     }
 
-    private async void StartConversionButton_Click(object sender, RoutedEventArgs e)
+    private async void StartConversionButton_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -576,7 +600,7 @@ public partial class MainWindow : IDisposable
             {
                 LogMessage(
                     $"Error: Cannot start conversion while a {_currentOperation.ToString().ToLowerInvariant()} operation is in progress.");
-                ShowError(
+                await ShowErrorAsync(
                     $"Please wait for the current {_currentOperation.ToString().ToLowerInvariant()} operation to complete before starting a new one.");
                 return;
             }
@@ -585,7 +609,7 @@ public partial class MainWindow : IDisposable
             {
                 var exeName = GetDolphinToolExecutableName();
                 LogMessage("Error: Critical dependencies are missing. Cannot start conversion.");
-                ShowError($"A required file (like {exeName}) is missing. Please check the application directory.");
+                await ShowErrorAsync($"A required file (like {exeName}) is missing. Please check the application directory.");
                 return;
             }
 
@@ -600,7 +624,7 @@ public partial class MainWindow : IDisposable
             if (inputError != null)
             {
                 LogMessage($"Error: {inputError}");
-                ShowError(inputError);
+                await ShowErrorAsync(inputError);
                 return;
             }
 
@@ -608,7 +632,7 @@ public partial class MainWindow : IDisposable
             if (outputError != null)
             {
                 LogMessage($"Error: {outputError}");
-                ShowError(outputError);
+                await ShowErrorAsync(outputError);
                 return;
             }
 
@@ -617,7 +641,7 @@ public partial class MainWindow : IDisposable
             if (selectedFiles.Length == 0)
             {
                 LogMessage("Error: No files selected for conversion.");
-                ShowError("Please select at least one file to convert.");
+                await ShowErrorAsync("Please select at least one file to convert.");
                 return;
             }
 
@@ -625,7 +649,7 @@ public partial class MainWindow : IDisposable
             {
                 const string msg = "The input and output folders must be different directories.";
                 LogMessage($"Error: {msg}");
-                ShowError(msg);
+                await ShowErrorAsync(msg);
                 return;
             }
 
@@ -633,18 +657,18 @@ public partial class MainWindow : IDisposable
             {
                 const string msg = "The input and output folders cannot be nested within each other.";
                 LogMessage($"Error: {msg}");
-                ShowError(msg);
+                await ShowErrorAsync(msg);
                 return;
             }
 
             try
             {
-                Directory.CreateDirectory(outputFolder);
+                Directory.CreateDirectory(outputFolder!);
             }
             catch (Exception ex)
             {
                 LogMessage($"Error creating output directory {outputFolder}: {ex.Message}");
-                ShowError($"Error creating output directory: {ex.Message}");
+                await ShowErrorAsync($"Error creating output directory: {ex.Message}");
                 await ReportBugAsync($"Error creating output directory: {outputFolder}", ex);
                 return;
             }
@@ -662,7 +686,7 @@ public partial class MainWindow : IDisposable
             }
 
             // Clear the log before starting the conversion
-            await Dispatcher.InvokeAsync(() => LogViewer.Clear());
+            await Dispatcher.UIThread.InvokeAsync(ClearLogViewer);
 
             ResetOperationStats();
             _currentOperation = OperationType.Conversion;
@@ -685,7 +709,7 @@ public partial class MainWindow : IDisposable
             {
                 _runningTask =
                     Task.Run(
-                        () => PerformBatchConversionAsync(_dolphinToolPath, selectedFiles, outputFolder, deleteFiles,
+                        () => PerformBatchConversionAsync(_dolphinToolPath, selectedFiles, outputFolder!, deleteFiles,
                             token), token);
 
                 await _runningTask.ConfigureAwait(false); // resume on thread pool, not UI thread
@@ -724,7 +748,7 @@ public partial class MainWindow : IDisposable
         }
     }
 
-    private void CancelButton_Click(object sender, RoutedEventArgs e)
+    private void CancelButton_Click(object? sender, RoutedEventArgs e)
     {
         lock (_ctsLock)
         {
@@ -744,7 +768,7 @@ public partial class MainWindow : IDisposable
 
         ExtractionOverlayText.Text =
             $"Cancellation requested.\nPlease wait for the current {operationName} to complete...";
-        ExtractionOverlay.Visibility = Visibility.Visible;
+        ExtractionOverlay.IsVisible = true;
     }
 
     private async Task SetControlsStateAsync(bool enabled)
@@ -753,7 +777,7 @@ public partial class MainWindow : IDisposable
         // This prevents deadlocks when called from background threads.
         try
         {
-            await Dispatcher.InvokeAsync(() =>
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 MainTabControl.IsEnabled = enabled;
 
@@ -777,7 +801,7 @@ public partial class MainWindow : IDisposable
                 DeleteExtractedFilesCheckBox.IsEnabled = enabled;
                 StartExtractionButton.IsEnabled = enabled;
 
-                CancelButton.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
+                CancelButton.IsVisible = !enabled;
 
                 if (enabled) // If controls are enabled (operation finished or not started)
                 {
@@ -785,13 +809,10 @@ public partial class MainWindow : IDisposable
                     _currentOperation = OperationType.None; // Reset operation type
 
                     // Update status bar to "Ready"
-                    if (FindName("StatusBarText") is System.Windows.Controls.TextBlock statusBarText)
-                    {
-                        statusBarText.Text = "Ready";
-                    }
+                    StatusBarText.Text = "Ready";
 
                     // Hide the "Please wait" overlay if it was shown during cancellation
-                    ExtractionOverlay.Visibility = Visibility.Collapsed;
+                    ExtractionOverlay.IsVisible = false;
                 }
 
                 UpdateWriteSpeedDisplay(0);
@@ -807,20 +828,30 @@ public partial class MainWindow : IDisposable
         }
     }
 
-    private static string? SelectFolder(string description)
+    private async Task<string?> SelectFolderAsync(string description)
     {
-        var dialog = new OpenFolderDialog
+        try
         {
-            Title = description
-        };
-        return dialog.ShowDialog() == true ? dialog.FolderName : null;
+            var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = description,
+                AllowMultiple = false
+            });
+
+            return folders.Count > 0 ? folders[0].TryGetLocalPath() : null;
+        }
+        catch (Exception ex)
+        {
+            LogMessage($"Error opening folder picker: {ex.Message}");
+            return null;
+        }
     }
 
     /// <summary>
     /// Validates a folder path for basic correctness and accessibility.
     /// Returns an error message if validation fails, or null if validation passes.
     /// </summary>
-    private static string? ValidateFolder(string folderPath, string label, bool mustExist)
+    private static string? ValidateFolder(string? folderPath, string label, bool mustExist)
     {
         if (string.IsNullOrWhiteSpace(folderPath))
             return $"Please select the {label}.";
@@ -868,10 +899,12 @@ public partial class MainWindow : IDisposable
     /// <summary>
     /// Validates that input and output folders are not the same directory.
     /// </summary>
-    private static bool AreSameFolder(string path1, string path2)
+    private static bool AreSameFolder(string? path1, string? path2)
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(path1) || string.IsNullOrWhiteSpace(path2)) return false;
+
             var full1 = Path.GetFullPath(path1).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             var full2 = Path.GetFullPath(path2).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             return string.Equals(full1, full2, StringComparison.OrdinalIgnoreCase);
@@ -882,10 +915,12 @@ public partial class MainWindow : IDisposable
         }
     }
 
-    private static bool IsSubdirectory(string parent, string child)
+    private static bool IsSubdirectory(string? parent, string? child)
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(parent) || string.IsNullOrWhiteSpace(child)) return false;
+
             var parentFull = Path.GetFullPath(parent)
                 .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             var childFull = Path.GetFullPath(child)
@@ -918,7 +953,7 @@ public partial class MainWindow : IDisposable
                 totalFiles = _totalFilesToProcess;
             }
 
-            await Dispatcher.InvokeAsync(() =>
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 FileProgressBar.IsIndeterminate = true;
                 FileProgressBar.Value = 0;
@@ -984,7 +1019,7 @@ public partial class MainWindow : IDisposable
         }
         finally
         {
-            await Dispatcher.InvokeAsync(() =>
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 FileProgressBar.IsIndeterminate = false;
                 FileProgressBar.Value = 0;
@@ -997,120 +1032,21 @@ public partial class MainWindow : IDisposable
     {
         try
         {
-            // Use Dispatcher.InvokeAsync to avoid potential deadlocks when called from async methods
-            return await Application.Current.Dispatcher.InvokeAsync(() =>
-            {
-                // Try to use this window as the owner only if it's still loaded and has a valid handle.
-                // This prevents "The calling thread cannot access this object" or "Invalid handle" errors
-                // if the window is in the process of closing.
-                Window? owner = null;
-                try
-                {
-                    if (!_disposed && IsLoaded)
-                    {
-                        var helper = new System.Windows.Interop.WindowInteropHelper(this);
-                        if (helper.Handle != IntPtr.Zero)
-                        {
-                            owner = this;
-                        }
-                    }
-                }
-                catch
-                {
-                    // If we can't access the window properties, we'll just show the message box without an owner.
-                }
-
-                return owner != null
-                    ? MessageBox.Show(owner, message, title, buttons, icon)
-                    : MessageBox.Show(message, title, buttons, icon);
-            });
+            // Only pass this window as the owner if it is still visible and not disposed.
+            // This prevents invalid-owner errors if the window is in the process of closing.
+            var owner = _disposed || !IsVisible ? null : this;
+            return await MessageBox.ShowAsync(owner, message, title, buttons, icon);
         }
         catch (Exception ex)
         {
             LogMessage($"Failed to show message box: {ex.Message}");
-            // Fallback: show without owner if something is really wrong
-            try
-            {
-                // Last resort fallback - if we're not on UI thread here, this might still fail in some environments,
-                // but we're already in an error state.
-                return MessageBox.Show(message, title, buttons, icon);
-            }
-            catch
-            {
-                return MessageBoxResult.None;
-            }
+            return MessageBoxResult.None;
         }
     }
 
-    // Synchronous wrapper for backward compatibility - uses InvokeAsync internally
-    private void ShowMessageBox(string message, string title, MessageBoxButton buttons, MessageBoxImage icon)
+    private Task<MessageBoxResult> ShowErrorAsync(string message)
     {
-        // Check if we're already on the UI thread to avoid deadlock
-        if (Application.Current?.Dispatcher.CheckAccess() == true)
-        {
-            // Already on UI thread, show message box directly
-            try
-            {
-                Window? owner = null;
-                try
-                {
-                    if (!_disposed && IsLoaded)
-                    {
-                        var helper = new System.Windows.Interop.WindowInteropHelper(this);
-                        if (helper.Handle != IntPtr.Zero)
-                        {
-                            owner = this;
-                        }
-                    }
-                }
-                catch
-                {
-                    // If we can't access the window properties, we'll just show without an owner.
-                }
-
-                if (owner != null)
-                    MessageBox.Show(owner, message, title, buttons, icon);
-                else
-                    MessageBox.Show(message, title, buttons, icon);
-            }
-            catch
-            {
-                // Last resort fallback
-                MessageBox.Show(message, title, buttons, icon);
-            }
-        }
-        else
-        {
-            Application.Current?.Dispatcher.Invoke(() =>
-            {
-                Window? owner = null;
-                try
-                {
-                    if (!_disposed && IsLoaded)
-                    {
-                        var helper = new System.Windows.Interop.WindowInteropHelper(this);
-                        if (helper.Handle != IntPtr.Zero)
-                        {
-                            owner = this;
-                        }
-                    }
-                }
-                catch
-                {
-                    // ignored
-                }
-
-                if (owner != null)
-                    MessageBox.Show(owner, message, title, buttons, icon);
-                else
-                    MessageBox.Show(message, title, buttons, icon);
-            });
-        }
-    }
-
-    private void ShowError(string message)
-    {
-        ShowMessageBox(message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        return ShowMessageBoxAsync(message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
     }
 
     /// <summary>
@@ -1141,16 +1077,17 @@ public partial class MainWindow : IDisposable
         return Task.CompletedTask;
     }
 
-    private void ExitMenuItem_Click(object sender, RoutedEventArgs e)
+    private void ExitMenuItem_Click(object? sender, RoutedEventArgs e)
     {
         Close();
     }
 
-    private void AboutMenuItem_Click(object sender, RoutedEventArgs e)
+    private void AboutMenuItem_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
-            new AboutWindow { Owner = this }.ShowDialog();
+            var aboutWindow = new AboutWindow();
+            _ = aboutWindow.ShowDialog(this);
         }
         catch (Exception ex)
         {
@@ -1169,7 +1106,7 @@ public partial class MainWindow : IDisposable
         }
     }
 
-    private async void CheckForUpdatesMenuItem_Click(object sender, RoutedEventArgs e)
+    private async void CheckForUpdatesMenuItem_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -1264,7 +1201,8 @@ public partial class MainWindow : IDisposable
             var errorMessage = $"Error opening URL: {url}. Exception: {ex.Message}";
             LogMessage(errorMessage);
             _ = ReportBugAsync(errorMessage, ex);
-            ShowMessageBox($"Unable to open link: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            _ = ShowMessageBoxAsync($"Unable to open link: {ex.Message}", "Error", MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
@@ -1272,7 +1210,7 @@ public partial class MainWindow : IDisposable
     {
         try
         {
-            _ = Dispatcher.BeginInvoke(() =>
+            Dispatcher.UIThread.Post(() =>
             {
                 FileProgressBar.IsIndeterminate = false;
                 FileProgressBar.Value = 0;
@@ -1280,10 +1218,7 @@ public partial class MainWindow : IDisposable
                 ProgressBar.IsIndeterminate = false;
                 ProgressBar.Value = 0;
                 ProgressBar.Maximum = 1;
-                if (FindName("StatusBarText") is System.Windows.Controls.TextBlock statusBarText)
-                {
-                    statusBarText.Text = "Ready."; // Set a default idle message
-                }
+                StatusBarText.Text = "Ready."; // Set a default idle message
             });
         }
         catch (TaskCanceledException)
@@ -1350,9 +1285,9 @@ public partial class MainWindow : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private void BrowseVerifyFolderButton_Click(object sender, RoutedEventArgs e)
+    private async void BrowseVerifyFolderButton_Click(object? sender, RoutedEventArgs e)
     {
-        var verifyFolder = SelectFolder("Select the folder containing RVZ files to verify");
+        var verifyFolder = await SelectFolderAsync("Select the folder containing RVZ files to verify");
         if (string.IsNullOrEmpty(verifyFolder)) return;
 
         VerifyFolderTextBox.Text = verifyFolder;
@@ -1361,7 +1296,7 @@ public partial class MainWindow : IDisposable
         PopulateVerificationFilesList(verifyFolder);
     }
 
-    private void IncludeSubfoldersVerify_Changed(object sender, RoutedEventArgs e)
+    private void IncludeSubfoldersVerify_Changed(object? sender, RoutedEventArgs e)
     {
         var verifyFolder = VerifyFolderTextBox.Text;
         if (!string.IsNullOrEmpty(verifyFolder) && Directory.Exists(verifyFolder))
@@ -1431,7 +1366,7 @@ public partial class MainWindow : IDisposable
         }
     }
 
-    private void SelectAllConversion_Click(object sender, RoutedEventArgs e)
+    private void SelectAllConversion_Click(object? sender, RoutedEventArgs e)
     {
         foreach (var f in _conversionFiles)
         {
@@ -1439,7 +1374,7 @@ public partial class MainWindow : IDisposable
         }
     }
 
-    private void DeselectAllConversion_Click(object sender, RoutedEventArgs e)
+    private void DeselectAllConversion_Click(object? sender, RoutedEventArgs e)
     {
         foreach (var f in _conversionFiles)
         {
@@ -1447,7 +1382,7 @@ public partial class MainWindow : IDisposable
         }
     }
 
-    private void SelectAllVerification_Click(object sender, RoutedEventArgs e)
+    private void SelectAllVerification_Click(object? sender, RoutedEventArgs e)
     {
         foreach (var f in _verificationFiles)
         {
@@ -1455,7 +1390,7 @@ public partial class MainWindow : IDisposable
         }
     }
 
-    private void DeselectAllVerification_Click(object sender, RoutedEventArgs e)
+    private void DeselectAllVerification_Click(object? sender, RoutedEventArgs e)
     {
         foreach (var f in _verificationFiles)
         {
@@ -1463,7 +1398,7 @@ public partial class MainWindow : IDisposable
         }
     }
 
-    private async void StartVerifyButton_Click(object sender, RoutedEventArgs e)
+    private async void StartVerifyButton_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -1472,7 +1407,7 @@ public partial class MainWindow : IDisposable
             {
                 LogMessage(
                     $"Error: Cannot start verification while a {_currentOperation.ToString().ToLowerInvariant()} operation is in progress.");
-                ShowError(
+                await ShowErrorAsync(
                     $"Please wait for the current {_currentOperation.ToString().ToLowerInvariant()} operation to complete before starting a new one.");
                 return;
             }
@@ -1481,7 +1416,7 @@ public partial class MainWindow : IDisposable
             {
                 var exeName = GetDolphinToolExecutableName();
                 LogMessage("Error: Critical dependencies are missing. Cannot start verification.");
-                ShowError($"A required file (like {exeName}) is missing. Please check the application directory.");
+                await ShowErrorAsync($"A required file (like {exeName}) is missing. Please check the application directory.");
                 return;
             }
 
@@ -1494,7 +1429,7 @@ public partial class MainWindow : IDisposable
             if (verifyError != null)
             {
                 LogMessage($"Error: {verifyError}");
-                ShowError(verifyError);
+                await ShowErrorAsync(verifyError);
                 return;
             }
 
@@ -1503,7 +1438,7 @@ public partial class MainWindow : IDisposable
             if (selectedFiles.Length == 0)
             {
                 LogMessage("Error: No files selected for verification.");
-                ShowError("Please select at least one file to verify.");
+                await ShowErrorAsync("Please select at least one file to verify.");
                 return;
             }
 
@@ -1520,7 +1455,7 @@ public partial class MainWindow : IDisposable
             }
 
             // Clear the log before starting the verification
-            await Dispatcher.InvokeAsync(() => LogViewer.Clear());
+            await Dispatcher.UIThread.InvokeAsync(ClearLogViewer);
 
             ResetOperationStats();
             _currentOperation = OperationType.Verification;
@@ -1573,7 +1508,7 @@ public partial class MainWindow : IDisposable
                 }
 
                 // Refresh the verification file list to reflect any moved files
-                await Dispatcher.InvokeAsync(() =>
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     if (!string.IsNullOrEmpty(VerifyFolderTextBox.Text) && Directory.Exists(VerifyFolderTextBox.Text))
                     {
@@ -1606,7 +1541,7 @@ public partial class MainWindow : IDisposable
                 totalFiles = _totalFilesToProcess;
             }
 
-            await Dispatcher.InvokeAsync(() =>
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 FileProgressBar.IsIndeterminate = true;
                 FileProgressBar.Value = 0;
@@ -1669,7 +1604,7 @@ public partial class MainWindow : IDisposable
         }
         finally
         {
-            await Dispatcher.InvokeAsync(() =>
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 FileProgressBar.IsIndeterminate = false;
                 FileProgressBar.Value = 0;
@@ -1751,7 +1686,7 @@ public partial class MainWindow : IDisposable
                 failureCount = _failureCount;
             }
 
-            _ = Dispatcher.BeginInvoke(() =>
+            Dispatcher.UIThread.Post(() =>
             {
                 TotalFilesValue.Text = totalFiles.ToString(CultureInfo.InvariantCulture);
                 SuccessValue.Text = successCount.ToString(CultureInfo.InvariantCulture);
@@ -1773,7 +1708,7 @@ public partial class MainWindow : IDisposable
         var elapsed = _operationTimer.Elapsed;
         try
         {
-            _ = Dispatcher.BeginInvoke(() =>
+            Dispatcher.UIThread.Post(() =>
                 ProcessingTimeValue.Text = $"{(int)elapsed.TotalHours:D2}:{elapsed:mm\\:ss}");
         }
         catch (TaskCanceledException)
@@ -1790,7 +1725,7 @@ public partial class MainWindow : IDisposable
     {
         try
         {
-            _ = Dispatcher.BeginInvoke(() => WriteSpeedValue.Text = $"{speedInMBps:F1} MB/s");
+            Dispatcher.UIThread.Post(() => WriteSpeedValue.Text = $"{speedInMBps:F1} MB/s");
         }
         catch (TaskCanceledException)
         {
@@ -1806,14 +1741,11 @@ public partial class MainWindow : IDisposable
     {
         try
         {
-            _ = Dispatcher.BeginInvoke(() =>
+            Dispatcher.UIThread.Post(() =>
             {
                 var percentage = total == 0 ? 0 : (double)current / total * 100;
-                if (FindName("StatusBarText") is System.Windows.Controls.TextBlock statusBarText)
-                {
-                    statusBarText.Text =
-                        $"{operationVerb} file {current} of {total}: {currentFileName} ({percentage:F1}%)";
-                }
+                StatusBarText.Text =
+                    $"{operationVerb} file {current} of {total}: {currentFileName} ({percentage:F1}%)";
             });
         }
         catch (TaskCanceledException)
@@ -1873,10 +1805,9 @@ public partial class MainWindow : IDisposable
     /// Handles compression method selection change.
     /// Updates the compression level slider range based on the selected method.
     /// </summary>
-    private void CompressionMethodComboBox_SelectionChanged(object sender,
-        System.Windows.Controls.SelectionChangedEventArgs e)
+    private void CompressionMethodComboBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (CompressionMethodComboBox?.SelectedItem is not System.Windows.Controls.ComboBoxItem selectedItem) return;
+        if (CompressionMethodComboBox?.SelectedItem is not ComboBoxItem selectedItem) return;
         if (CompressionLevelSlider == null) return;
 
         var method = selectedItem.Tag?.ToString() ?? "zstd";
@@ -1909,14 +1840,14 @@ public partial class MainWindow : IDisposable
     /// Handles compression level slider value change.
     /// Updates the displayed value and stores the setting.
     /// </summary>
-    private void CompressionLevelSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    private void CompressionLevelSlider_ValueChanged(object? sender, Avalonia.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     {
         if (CompressionLevelValue == null) return;
 
         var level = (int)e.NewValue;
 
         // Validate level is within allowed range for the selected compression method
-        if (CompressionMethodComboBox?.SelectedItem is System.Windows.Controls.ComboBoxItem selectedItem)
+        if (CompressionMethodComboBox?.SelectedItem is ComboBoxItem selectedItem)
         {
             var method = selectedItem.Tag?.ToString() ?? "zstd";
 
@@ -1946,7 +1877,7 @@ public partial class MainWindow : IDisposable
     /// </summary>
     private void UpdateBlockSizeFromSelection()
     {
-        if (BlockSizeComboBox?.SelectedItem is not System.Windows.Controls.ComboBoxItem selectedItem) return;
+        if (BlockSizeComboBox?.SelectedItem is not ComboBoxItem selectedItem) return;
 
         if (selectedItem.Tag != null && int.TryParse(selectedItem.Tag.ToString(), out var blockSize))
         {
@@ -1965,9 +1896,9 @@ public partial class MainWindow : IDisposable
 
     #region Extraction Tab Event Handlers
 
-    private void BrowseExtractInputButton_Click(object sender, RoutedEventArgs e)
+    private async void BrowseExtractInputButton_Click(object? sender, RoutedEventArgs e)
     {
-        var inputFolder = SelectFolder("Select the folder containing RVZ files to extract");
+        var inputFolder = await SelectFolderAsync("Select the folder containing RVZ files to extract");
         if (string.IsNullOrEmpty(inputFolder)) return;
 
         ExtractInputFolderTextBox.Text = inputFolder;
@@ -2014,16 +1945,16 @@ public partial class MainWindow : IDisposable
         }
     }
 
-    private void BrowseExtractOutputButton_Click(object sender, RoutedEventArgs e)
+    private async void BrowseExtractOutputButton_Click(object? sender, RoutedEventArgs e)
     {
-        var outputFolder = SelectFolder("Select the output folder where ISO files will be saved");
+        var outputFolder = await SelectFolderAsync("Select the output folder where ISO files will be saved");
         if (string.IsNullOrEmpty(outputFolder)) return;
 
         ExtractOutputFolderTextBox.Text = outputFolder;
         LogMessage($"Extraction output folder selected: {outputFolder}");
     }
 
-    private void SelectAllExtraction_Click(object sender, RoutedEventArgs e)
+    private void SelectAllExtraction_Click(object? sender, RoutedEventArgs e)
     {
         foreach (var f in _extractionFiles)
         {
@@ -2031,7 +1962,7 @@ public partial class MainWindow : IDisposable
         }
     }
 
-    private void DeselectAllExtraction_Click(object sender, RoutedEventArgs e)
+    private void DeselectAllExtraction_Click(object? sender, RoutedEventArgs e)
     {
         foreach (var f in _extractionFiles)
         {
@@ -2039,7 +1970,7 @@ public partial class MainWindow : IDisposable
         }
     }
 
-    private async void StartExtractionButton_Click(object sender, RoutedEventArgs e)
+    private async void StartExtractionButton_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -2048,7 +1979,7 @@ public partial class MainWindow : IDisposable
             {
                 LogMessage(
                     $"Error: Cannot start extraction while a {_currentOperation.ToString().ToLowerInvariant()} operation is in progress.");
-                ShowError(
+                await ShowErrorAsync(
                     $"Please wait for the current {_currentOperation.ToString().ToLowerInvariant()} operation to complete before starting a new one.");
                 return;
             }
@@ -2057,20 +1988,21 @@ public partial class MainWindow : IDisposable
             {
                 var exeName = GetDolphinToolExecutableName();
                 LogMessage("Error: Critical dependencies are missing. Cannot start extraction.");
-                ShowError($"A required file (like {exeName}) is missing. Please check the application directory.");
+                await ShowErrorAsync($"A required file (like {exeName}) is missing. Please check the application directory.");
                 return;
             }
 
             var inputFolder = ExtractInputFolderTextBox.Text;
             var outputFolder = ExtractOutputFolderTextBox.Text;
             var deleteFiles = DeleteExtractedFilesCheckBox.IsChecked ?? false;
-            var outputFormat = ExtractOutputFormatComboBox.Text.ToLowerInvariant();
+            var outputFormat = (ExtractOutputFormatComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString()?.ToLowerInvariant()
+                               ?? "iso";
 
             var inputError = ValidateFolder(inputFolder, "input folder", true);
             if (inputError != null)
             {
                 LogMessage($"Error: {inputError}");
-                ShowError(inputError);
+                await ShowErrorAsync(inputError);
                 return;
             }
 
@@ -2078,7 +2010,7 @@ public partial class MainWindow : IDisposable
             if (outputError != null)
             {
                 LogMessage($"Error: {outputError}");
-                ShowError(outputError);
+                await ShowErrorAsync(outputError);
                 return;
             }
 
@@ -2087,7 +2019,7 @@ public partial class MainWindow : IDisposable
             if (selectedFiles.Length == 0)
             {
                 LogMessage("Error: No files selected for extraction.");
-                ShowError("Please select at least one file to extract.");
+                await ShowErrorAsync("Please select at least one file to extract.");
                 return;
             }
 
@@ -2095,7 +2027,7 @@ public partial class MainWindow : IDisposable
             {
                 const string msg = "The input and output folders must be different directories.";
                 LogMessage($"Error: {msg}");
-                ShowError(msg);
+                await ShowErrorAsync(msg);
                 return;
             }
 
@@ -2103,18 +2035,18 @@ public partial class MainWindow : IDisposable
             {
                 const string msg = "The input and output folders cannot be nested within each other.";
                 LogMessage($"Error: {msg}");
-                ShowError(msg);
+                await ShowErrorAsync(msg);
                 return;
             }
 
             try
             {
-                Directory.CreateDirectory(outputFolder);
+                Directory.CreateDirectory(outputFolder!);
             }
             catch (Exception ex)
             {
                 LogMessage($"Error creating output directory {outputFolder}: {ex.Message}");
-                ShowError($"Error creating output directory: {ex.Message}");
+                await ShowErrorAsync($"Error creating output directory: {ex.Message}");
                 await ReportBugAsync($"Error creating output directory: {outputFolder}", ex);
                 return;
             }
@@ -2132,7 +2064,7 @@ public partial class MainWindow : IDisposable
             }
 
             // Clear the log before starting the extraction
-            await Dispatcher.InvokeAsync(() => LogViewer.Clear());
+            await Dispatcher.UIThread.InvokeAsync(ClearLogViewer);
 
             ResetOperationStats();
             _currentOperation = OperationType.Extraction;
@@ -2153,7 +2085,7 @@ public partial class MainWindow : IDisposable
             {
                 _runningTask =
                     Task.Run(
-                        () => PerformBatchExtractionAsync(_dolphinToolPath, selectedFiles, outputFolder, deleteFiles,
+                        () => PerformBatchExtractionAsync(_dolphinToolPath, selectedFiles, outputFolder!, deleteFiles,
                             outputFormat, token), token);
 
                 await _runningTask.ConfigureAwait(false);
@@ -2210,7 +2142,7 @@ public partial class MainWindow : IDisposable
                 totalFiles = _totalFilesToProcess;
             }
 
-            await Dispatcher.InvokeAsync(() =>
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 FileProgressBar.IsIndeterminate = true;
                 FileProgressBar.Value = 0;
@@ -2274,7 +2206,7 @@ public partial class MainWindow : IDisposable
         }
         finally
         {
-            await Dispatcher.InvokeAsync(() =>
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 FileProgressBar.IsIndeterminate = false;
                 FileProgressBar.Value = 0;
@@ -2286,79 +2218,60 @@ public partial class MainWindow : IDisposable
 
     #region Drag and Drop Event Handlers
 
-    private void ConversionFilesDataGrid_DragOver(object sender, DragEventArgs e)
+    private void ConversionFilesDataGrid_DragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.GetDataPresent(DataFormats.FileDrop))
-        {
-            e.Effects = DragDropEffects.Copy;
-        }
-        else
-        {
-            e.Effects = DragDropEffects.None;
-        }
-
+        e.DragEffects = e.DataTransfer.Contains(DataFormat.File) ? DragDropEffects.Copy : DragDropEffects.None;
         e.Handled = true;
     }
 
-    private void ConversionFilesDataGrid_Drop(object sender, DragEventArgs e)
+    private void ConversionFilesDataGrid_Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        var files = GetDroppedFilePaths(e);
+        if (files.Length > 0)
         {
-            if (e.Data.GetData(DataFormats.FileDrop) is string[] files)
-            {
-                HandleDroppedFiles(files, "conversion");
-            }
+            HandleDroppedFiles(files, "conversion");
         }
     }
 
-    private void VerificationFilesDataGrid_DragOver(object sender, DragEventArgs e)
+    private void VerificationFilesDataGrid_DragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.GetDataPresent(DataFormats.FileDrop))
-        {
-            e.Effects = DragDropEffects.Copy;
-        }
-        else
-        {
-            e.Effects = DragDropEffects.None;
-        }
-
+        e.DragEffects = e.DataTransfer.Contains(DataFormat.File) ? DragDropEffects.Copy : DragDropEffects.None;
         e.Handled = true;
     }
 
-    private void VerificationFilesDataGrid_Drop(object sender, DragEventArgs e)
+    private void VerificationFilesDataGrid_Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        var files = GetDroppedFilePaths(e);
+        if (files.Length > 0)
         {
-            if (e.Data.GetData(DataFormats.FileDrop) is string[] files)
-            {
-                HandleDroppedFiles(files, "verification");
-            }
+            HandleDroppedFiles(files, "verification");
         }
     }
 
-    private void ExtractionFilesDataGrid_DragOver(object sender, DragEventArgs e)
+    private void ExtractionFilesDataGrid_DragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.GetDataPresent(DataFormats.FileDrop))
-        {
-            e.Effects = DragDropEffects.Copy;
-        }
-        else
-        {
-            e.Effects = DragDropEffects.None;
-        }
-
+        e.DragEffects = e.DataTransfer.Contains(DataFormat.File) ? DragDropEffects.Copy : DragDropEffects.None;
         e.Handled = true;
     }
 
-    private void ExtractionFilesDataGrid_Drop(object sender, DragEventArgs e)
+    private void ExtractionFilesDataGrid_Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        var files = GetDroppedFilePaths(e);
+        if (files.Length > 0)
         {
-            if (e.Data.GetData(DataFormats.FileDrop) is string[] files)
-            {
-                HandleDroppedFiles(files, "extraction");
-            }
+            HandleDroppedFiles(files, "extraction");
         }
+    }
+
+    private static string[] GetDroppedFilePaths(DragEventArgs e)
+    {
+        if (!e.DataTransfer.Contains(DataFormat.File)) return [];
+
+        return e.DataTransfer.TryGetFiles()?
+            .Select(item => item.TryGetLocalPath())
+            .Where(path => !string.IsNullOrEmpty(path))
+            .Cast<string>()
+            .ToArray() ?? [];
     }
 
     private void HandleDroppedFiles(string[] files, string target)
@@ -2405,7 +2318,7 @@ public partial class MainWindow : IDisposable
         catch (Exception ex)
         {
             LogMessage($"Error handling dropped files: {ex.Message}");
-            ShowError($"Error processing dropped files: {ex.Message}");
+            _ = ShowErrorAsync($"Error processing dropped files: {ex.Message}");
             _ = ReportBugAsync("Error handling dropped files", ex);
         }
     }
@@ -2431,7 +2344,7 @@ public partial class MainWindow : IDisposable
             var fileArray = filteredFiles.ToArray();
             if (fileArray.Length == 0)
             {
-                ShowMessageBox("No supported files were found in the drop. Please check file extensions.", "Info",
+                _ = ShowMessageBoxAsync("No supported files were found in the drop. Please check file extensions.", "Info",
                     MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
@@ -2472,7 +2385,7 @@ public partial class MainWindow : IDisposable
                 _ => null
             };
 
-            textBox?.Text = commonDirectory ?? "(Multiple locations)";
+            textBox?.SetCurrentValue(TextBox.TextProperty, commonDirectory ?? "(Multiple locations)");
 
             // Add files to the list (skip duplicates)
             var addedCount = 0;
@@ -2524,7 +2437,7 @@ public partial class MainWindow : IDisposable
         catch (Exception ex)
         {
             LogMessage($"Error adding individual files: {ex.Message}");
-            ShowError($"Error adding files: {ex.Message}");
+            _ = ShowErrorAsync($"Error adding files: {ex.Message}");
             _ = ReportBugAsync("Error adding individual files to list", ex);
         }
     }

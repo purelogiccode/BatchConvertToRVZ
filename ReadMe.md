@@ -1,11 +1,12 @@
-[![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-blue)](https://github.com/purelogiccode/BatchConvertToRVZ/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS%20x64%20%7C%20ARM64-blue)](https://github.com/purelogiccode/BatchConvertToRVZ/releases)
 [![.NET 10.0](https://img.shields.io/badge/.NET-10.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
+[![Avalonia](https://img.shields.io/badge/UI-Avalonia-purple.svg)](https://avaloniaui.net/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
 [![GitHub release](https://img.shields.io/github/v/release/purelogiccode/BatchConvertToRVZ)](https://github.com/purelogiccode/BatchConvertToRVZ/releases)
 
 # Batch Convert to RVZ
 
-A Windows desktop utility for batch converting GameCube and Wii disc images to RVZ format with verification capabilities.
+A cross-platform desktop utility for batch converting GameCube and Wii disc images to RVZ format with verification capabilities.
 
 ![Batch Convert to RVZ](screenshot.png)
 ![Batch Convert to RVZ](screenshot2.png)
@@ -13,7 +14,9 @@ A Windows desktop utility for batch converting GameCube and Wii disc images to R
 
 ## Overview
 
-Batch Convert to RVZ is a comprehensive Windows application that provides a user-friendly interface for converting multiple GameCube and Wii game files to the RVZ format. It uses **DolphinTool** from the Dolphin Emulator project for conversions and verification, while providing advanced features like batch processing and archive extraction.
+Batch Convert to RVZ is a comprehensive desktop application built with **Avalonia UI** that provides a user-friendly interface for converting multiple GameCube and Wii game files to the RVZ format. It uses **DolphinTool** from the Dolphin Emulator project for conversions and verification, while providing advanced features like batch processing and archive extraction.
+
+The application ships for **Windows, Linux and macOS** on both **x64 and ARM64** architectures.
 
 ## Features
 
@@ -54,7 +57,7 @@ Batch Convert to RVZ is a comprehensive Windows application that provides a user
 - **Global Error Reporting**: Automatic bug reporting to developers with comprehensive error details.
 - **Process Error Suppression**: Prevents Windows error dialogs from child processes (DolphinTool) from blocking batch operations.
 - **Robust Child-Process Handling**: DolphinTool/7za startup failures (missing or blocked executables) are handled gracefully — the batch continues with the real error logged instead of crashing on process cleanup.
-- **Font-Failure Resilience**: On systems with broken or missing system fonts that crash WPF text rendering, the application stays running and logs the failure instead of closing.
+- **Cross-Platform UI**: The Avalonia-based interface runs natively on Windows, Linux and macOS, and automatically locates the platform-specific helper executables.
 - **Robust Cleanup**: Asynchronous retry logic for deleting locked temporary files and directories.
 - **Memory Management**: Efficient string handling and proper resource disposal to prevent leaks.
 
@@ -119,17 +122,21 @@ converting disc images to RVZ (encode) and RVZ back to ISO (decode):
 
 ## Requirements
 
-- **Runtime**: [.NET 10.0 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
-- **Operating System**: Windows 10 or later (x64 or ARM64)
+- **Runtime**: [.NET 10.0 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (not required for the self-contained release builds)
+- **Operating System**: Windows 10 or later, a modern Linux distribution, or macOS (x64 or ARM64)
 - **Dependencies**: All required files are included in the release:
-  - `DolphinTool.exe` (x64 systems)
-  - `DolphinTool_arm64.exe` (ARM64 systems)
+  - Windows: `DolphinTool.exe` / `DolphinTool_arm64.exe` and `7za.exe` / `7za_arm64.exe`
+  - Linux/macOS: `DolphinTool` / `DolphinTool_arm64` and `7za` / `7za_arm64`
 
 ## Installation
 
-1. Download the latest release from the [Releases page](https://github.com/purelogiccode/BatchConvertToRVZ/releases)
-2. Extract the ZIP file to a folder of your choice
-3. Run `BatchConvertToRVZ.exe`
+1. Download the latest release for your platform from the [Releases page](https://github.com/purelogiccode/BatchConvertToRVZ/releases)
+2. Extract the archive to a folder of your choice
+3. Run `BatchConvertToRVZ.exe` (Windows) or `./BatchConvertToRVZ` (Linux/macOS)
+
+> **Linux/macOS note:** The bundled helper executables must be executable. The application sets the
+> execute permission automatically when needed, but if the application was extracted by a tool that
+> strips permissions you can run `chmod +x DolphinTool* 7za* BatchConvertToRVZ` once.
 
 ## Usage
 
@@ -212,11 +219,15 @@ RVZ is a compressed disk image format developed specifically for the Dolphin Emu
 ### Project Structure
 ```
 BatchConvertToRVZ/
-├── App.xaml.cs              # Application entry point, global exception handling, Serilog bootstrap
-├── MainWindow.xaml          # Main UI definition
-├── MainWindow.xaml.cs       # Main UI logic and operation orchestration
-├── AboutWindow.xaml         # About dialog UI
-├── AboutWindow.xaml.cs      # About dialog logic
+├── Program.cs               # Entry point / Avalonia AppBuilder bootstrap
+├── App.axaml                # Application resources, dark theme and control styles
+├── App.axaml.cs             # Application entry point, global exception handling, Serilog bootstrap
+├── MainWindow.axaml         # Main UI definition
+├── MainWindow.axaml.cs      # Main UI logic and operation orchestration
+├── AboutWindow.axaml        # About dialog UI
+├── AboutWindow.axaml.cs     # About dialog logic
+├── dialogs/
+│   └── MessageBox.axaml     # Cross-platform, theme-styled message box
 ├── services/
 │   ├── BugReportService.cs  # Automatic error reporting service
 │   ├── BugReportSink.cs     # Serilog sink: forwards Warning+ events to BugReport API
@@ -224,7 +235,7 @@ BatchConvertToRVZ/
 │   ├── ExtractionService.cs # Archive extraction logic
 │   ├── FileService.cs       # File scanning and filtering
 │   ├── LoggingSinkExtensions.cs # Serilog configuration extensions
-│   ├── ProcessHelper.cs     # Suppresses child process error dialogs
+│   ├── ProcessHelper.cs     # Child process helpers (error dialogs, execute bits)
 │   ├── ScreenshotService.cs # F8 window screenshot capture
 │   ├── SharedHttpHandler.cs # Shared HTTP client configuration
 │   ├── StatsService.cs      # Statistics tracking service
@@ -237,14 +248,30 @@ BatchConvertToRVZ/
 │   └── SystemInfo.cs        # System information model
 ├── icon/                    # Application icons
 ├── images/                  # UI images (menu icons, logo)
-├── DolphinTool*.exe         # External conversion/verification tool
+├── DolphinTool*.exe         # External conversion/verification tool (Windows)
 └── BatchConvertToRVZ.Tests/ # Unit tests (xUnit)
 ```
 
 ### Building from Source
 1. Install [.NET 10.0 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 2. Clone the repository
-3. Run `dotnet build` or open in Visual Studio / JetBrains Rider
+3. Run `dotnet build` or open in Visual Studio / JetBrains Rider / Visual Studio Code
+
+### Publishing
+The `publish.ps1` script produces self-contained, single-file builds for every supported platform
+(`win-x64`, `win-arm64`, `linux-x64`, `linux-arm64`, `osx-x64`, `osx-arm64`) into the `publish/`
+folder. The DolphinTool/7za helper executables are placed next to the application binary so they
+can be launched as child processes.
+
+```powershell
+./publish.ps1
+```
+
+A single target can also be published manually:
+```bash
+dotnet publish BatchConvertToRVZ/BatchConvertToRVZ.csproj -c Release -r linux-x64 \
+    --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+```
 
 ### Running Tests
 The project includes unit tests covering models and services using xUnit:

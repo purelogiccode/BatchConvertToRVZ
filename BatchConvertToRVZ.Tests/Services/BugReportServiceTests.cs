@@ -19,6 +19,13 @@ public class BugReportServiceTests
     {
         var result = BugReportService.GetWindowsVersion();
 
-        Assert.Contains("Windows", result);
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Contains("Windows", result);
+        }
+        else
+        {
+            Assert.NotEmpty(result);
+        }
     }
 }

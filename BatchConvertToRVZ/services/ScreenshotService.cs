@@ -1,8 +1,8 @@
 using System.Globalization;
 using System.IO;
-using System.Windows;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Media.Imaging;
 using Serilog;
 
 namespace BatchConvertToRVZ.services;
@@ -20,8 +20,9 @@ public class ScreenshotService
     {
         try
         {
-            var width = (int)Math.Ceiling(window.ActualWidth);
-            var height = (int)Math.Ceiling(window.ActualHeight);
+            var scaling = window.RenderScaling;
+            var width = (int)Math.Ceiling(window.ClientSize.Width * scaling);
+            var height = (int)Math.Ceiling(window.ClientSize.Height * scaling);
 
             if (width <= 0 || height <= 0)
             {
@@ -30,18 +31,11 @@ public class ScreenshotService
                 return null;
             }
 
-            var dpiScale = VisualTreeHelper.GetDpi(window);
-            var renderBitmap = new RenderTargetBitmap(
-                (int)Math.Ceiling(width * dpiScale.DpiScaleX),
-                (int)Math.Ceiling(height * dpiScale.DpiScaleY),
-                dpiScale.PixelsPerInchX,
-                dpiScale.PixelsPerInchY,
-                PixelFormats.Pbgra32);
+            using var renderBitmap = new RenderTargetBitmap(
+                new PixelSize(width, height),
+                new Vector(96 * scaling, 96 * scaling));
 
             renderBitmap.Render(window);
-
-            var encoder = new PngBitmapEncoder();
-            encoder.Frames.Add(BitmapFrame.Create(renderBitmap));
 
             var screenshotFolder = GetScreenshotFolder();
             Directory.CreateDirectory(screenshotFolder);
@@ -49,10 +43,7 @@ public class ScreenshotService
             var fileName = $"Screenshot_{DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture)}.png";
             var filePath = Path.Combine(screenshotFolder, fileName);
 
-            await using (var stream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
-            {
-                encoder.Save(stream);
-            }
+            renderBitmap.Save(filePath);
 
             _logger.Information("{Message:l}", $"Screenshot saved: {filePath}");
             return filePath;
