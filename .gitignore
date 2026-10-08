@@ -4,7 +4,7 @@ obj/
 riderModule.iml
 /_ReSharper.Caches/
 .idea/
-/BatchConvertToRVZ/References/
+/RVZStudio/References/
 *.DotSettings.user
 /bugs.md
 /publish/

@@ -1,0 +1,83 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RVZStudio.AboutWindow"
+        Title="About RVZStudio"
+        Width="600"
+        Height="700"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource WindowBackgroundBrush}">
+    <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,*,Auto">
+
+        <!-- Logo Section -->
+        <Border Grid.Row="0" Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Margin="0,0,0,15" Padding="15" ToolTip.Tip="Application Logo">
+            <StackPanel HorizontalAlignment="Center">
+                <Image Width="120" Height="120" Source="avares://RVZStudio/images/logo.png" />
+            </StackPanel>
+        </Border>
+
+        <!-- Title & Version Section -->
+        <Border Grid.Row="1" Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Margin="0,0,0,15" Padding="15" ToolTip.Tip="Application name and version">
+            <StackPanel>
+                <TextBlock FontWeight="Bold" FontSize="20" Foreground="{StaticResource HeaderTextBrush}" Text="RVZStudio" HorizontalAlignment="Center" />
+                <TextBlock Name="AppVersionTextBlock" Margin="0,8,0,0" Text="" HorizontalAlignment="Center" Foreground="{StaticResource PrimaryAccentBrush}" FontWeight="SemiBold" FontSize="14" ToolTip.Tip="Application version" />
+            </StackPanel>
+        </Border>
+
+        <!-- Description Section -->
+        <Border Grid.Row="2" Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Margin="0,0,0,15" Padding="15" ToolTip.Tip="Brief overview of the application purpose">
+            <StackPanel>
+                <TextBlock FontWeight="Bold" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" Text="Description" Margin="0,0,0,10" />
+                <TextBlock TextWrapping="Wrap" Text="A utility for batch converting GameCube/Wii ISO images to RVZ format." Foreground="{StaticResource TextSecondaryBrush}" LineHeight="20" />
+                <TextBlock Margin="0,10,0,0">
+                    <TextBlock Text="https://github.com/purelogiccode/BatchConvertToRVZ"
+                               Cursor="Hand"
+                               Tag="https://github.com/purelogiccode/BatchConvertToRVZ"
+                               PointerPressed="Hyperlink_RequestNavigate"
+                               Foreground="{StaticResource LinkTextBrush}"
+                               TextDecorations="Underline"
+                               ToolTip.Tip="Visit the project repository" />
+                </TextBlock>
+                <TextBlock Margin="0,15,0,0">
+                    <TextBlock Text="https://www.purelogiccode.com"
+                               Cursor="Hand"
+                               Tag="https://www.purelogiccode.com"
+                               PointerPressed="Hyperlink_RequestNavigate"
+                               Foreground="{StaticResource LinkTextBrush}"
+                               TextDecorations="Underline"
+                               ToolTip.Tip="Visit the official website" />
+                </TextBlock>
+            </StackPanel>
+        </Border>
+
+        <!-- Acknowledgements Section -->
+        <Border Grid.Row="3" Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Margin="0,0,0,15" Padding="15" ToolTip.Tip="Credits and third-party tools used">
+            <StackPanel>
+                <TextBlock FontWeight="Bold" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" Text="Acknowledgements" Margin="0,0,0,10" />
+                <WrapPanel Margin="0,0,0,8">
+                    <TextBlock Text="• Uses " TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" />
+                    <TextBlock Text="DolphinTool.exe" FontWeight="Bold" Cursor="Hand"
+                               Tag="https://dolphin-emu.org/"
+                               PointerPressed="Hyperlink_RequestNavigate"
+                               Foreground="{StaticResource PrimaryAccentBrush}"
+                               ToolTip.Tip="Open Dolphin Emulator website" />
+                    <TextBlock Text=" from the Dolphin Emulator project for conversions." TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" />
+                </WrapPanel>
+                <WrapPanel Margin="0,0,0,8">
+                    <TextBlock Text="• Uses " TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" />
+                    <TextBlock Text="SharpCompress" FontWeight="Bold" Cursor="Hand"
+                               Tag="https://github.com/adamhathcock/sharpcompress"
+                               PointerPressed="Hyperlink_RequestNavigate"
+                               Foreground="{StaticResource PrimaryAccentBrush}"
+                               ToolTip.Tip="Open SharpCompress GitHub repository" />
+                    <TextBlock Text=" for .zip, .7z and .rar archive extraction." TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" />
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Close Button Section -->
+        <StackPanel Grid.Row="4" HorizontalAlignment="Center">
+            <Button Click="CloseButton_Click" Content="Close" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Close the About window" />
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,71 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <ApplicationIcon>icon\icon.ico</ApplicationIcon>
+        <AssemblyVersion>2.4.1</AssemblyVersion>
+        <FileVersion>2.4.1</FileVersion>
+        <IsPackable>false</IsPackable>
+        <NeutralLanguage>en-US</NeutralLanguage>
+        <AssemblyName>RVZStudio</AssemblyName>
+        <DebugType>embedded</DebugType>
+        <DebugSymbols>true</DebugSymbols>
+        <Company>PureLogicCode.com</Company>
+        <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+        <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="RVZStudio.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <AvaloniaResource Include="icon\icon.ico" />
+        <AvaloniaResource Include="icon\icon.png" />
+        <AvaloniaResource Include="images\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Avalonia" Version="11.3.22" />
+        <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
+        <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.13" />
+        <PackageReference Include="Avalonia.Diagnostics" Version="11.3.22" Condition="'$(Configuration)' == 'Debug'" />
+        <PackageReference Include="Roslynator.Analyzers" Version="5.0.1">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="RVZSharp" Version="1.0.0" />
+        <PackageReference Include="Serilog" Version="4.4.0" />
+        <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+        <PackageReference Include="SharpCompress" Version="0.50.4" />
+        <PackageReference Include="Meziantou.Analyzer" Version="3.0.296">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Update="DolphinTool.exe">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+            <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+        </None>
+        <None Update="DolphinTool_arm64.exe">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+            <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+        </None>
+        <None Update="7za.exe">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+            <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+        </None>
+        <None Update="7za_arm64.exe">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+            <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+        </None>
+    </ItemGroup>
+
+
+</Project>

@@ -6,7 +6,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$project = Join-Path $PSScriptRoot "BatchConvertToRVZ\BatchConvertToRVZ.csproj"
+$project = Join-Path $PSScriptRoot "RVZStudio\RVZStudio.csproj"
 
 [xml]$projectXml = Get-Content $project
 $version = @($projectXml.Project.PropertyGroup.FileVersion) |

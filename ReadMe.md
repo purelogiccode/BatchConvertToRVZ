@@ -1,20 +1,36 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS%20x64%20%7C%20ARM64-blue)](https://github.com/purelogiccode/BatchConvertToRVZ/releases)
 [![.NET 10.0](https://img.shields.io/badge/.NET-10.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
 [![Avalonia](https://img.shields.io/badge/UI-Avalonia-purple.svg)](https://avaloniaui.net/)
+[![CI](https://github.com/purelogiccode/BatchConvertToRVZ/actions/workflows/ci.yml/badge.svg)](https://github.com/purelogiccode/BatchConvertToRVZ/actions/workflows/ci.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
 [![GitHub release](https://img.shields.io/github/v/release/purelogiccode/BatchConvertToRVZ)](https://github.com/purelogiccode/BatchConvertToRVZ/releases)
 
-# Batch Convert to RVZ
+# RVZStudio
 
 A cross-platform desktop utility for batch converting GameCube and Wii disc images to RVZ format with verification capabilities.
 
-![Batch Convert to RVZ](screenshot.png)
-![Batch Convert to RVZ](screenshot2.png)
-![Batch Convert to RVZ](screenshot3.png)
+![RVZStudio](screenshot.png)
+![RVZStudio](screenshot2.png)
+![RVZStudio](screenshot3.png)
+
+## Documentation
+
+Full documentation lives in the [`doc/`](doc/README.md) folder:
+
+| Page | Description |
+|------|-------------|
+| [Getting Started](doc/getting-started.md) | Requirements, installation and quick start. |
+| [User Guide](doc/user-guide.md) | Walkthrough of every screen and control. |
+| [Settings Reference](doc/settings-reference.md) | Compression methods, levels, block sizes and options. |
+| [Troubleshooting](doc/troubleshooting.md) | Solutions for common problems. |
+| [FAQ](doc/faq.md) | Frequently asked questions. |
+| [Architecture](doc/architecture.md) | Internal design and data flow. |
+| [Building](doc/building.md) | Build, test, publish and CI/CD. |
+| [Contributing](doc/contributing.md) | Issue reporting and pull request workflow. |
 
 ## Overview
 
-Batch Convert to RVZ is a comprehensive desktop application built with **Avalonia UI** that provides a user-friendly interface for converting multiple GameCube and Wii game files to the RVZ format. It uses **DolphinTool** from the Dolphin Emulator project for conversions and verification, while providing advanced features like batch processing and archive extraction.
+RVZStudio is a comprehensive desktop application built with **Avalonia UI** that provides a user-friendly interface for converting multiple GameCube and Wii game files to the RVZ format. It uses **DolphinTool** from the Dolphin Emulator project for conversions and verification, while providing advanced features like batch processing and archive extraction.
 
 The application ships for **Windows, Linux and macOS** on both **x64 and ARM64** architectures.
 
@@ -89,7 +105,7 @@ The application follows a modular architecture with clear separation of concerns
 
 ## Conversion Engine
 
-Batch Convert to RVZ uses **RVZSharp** — a pure managed C# library — as its primary engine for
+RVZStudio uses **RVZSharp** — a pure managed C# library — as its primary engine for
 converting disc images to RVZ (encode) and RVZ back to ISO (decode):
 
 - **Encode**: `RVZSharp` encodes ISO/GCM/WBFS/GCZ/WIA images natively with the selected
@@ -132,11 +148,11 @@ converting disc images to RVZ (encode) and RVZ back to ISO (decode):
 
 1. Download the latest release for your platform from the [Releases page](https://github.com/purelogiccode/BatchConvertToRVZ/releases)
 2. Extract the archive to a folder of your choice
-3. Run `BatchConvertToRVZ.exe` (Windows) or `./BatchConvertToRVZ` (Linux/macOS)
+3. Run `RVZStudio.exe` (Windows) or `./RVZStudio` (Linux/macOS)
 
 > **Linux/macOS note:** The bundled helper executables must be executable. The application sets the
 > execute permission automatically when needed, but if the application was extracted by a tool that
-> strips permissions you can run `chmod +x DolphinTool* 7za* BatchConvertToRVZ` once.
+> strips permissions you can run `chmod +x DolphinTool* 7za* RVZStudio` once.
 
 ## Usage
 
@@ -166,11 +182,11 @@ converting disc images to RVZ (encode) and RVZ back to ISO (decode):
 4. **Start Verification**: Click "Start Verification" to begin checking file integrity with real-time feedback.
 5. **Review Results**: Check the log and statistics for detailed verification results.
 
-### Menu Options
+### Header Actions
 
-- **File > Exit**: Close the application.
-- **Help > Check for Updates**: Manually check for new versions on GitHub.
-- **Help > About**: View application information and credits.
+- **Updates**: Manually check for new versions on GitHub.
+- **About**: View application information and credits.
+- **Exit**: Close the application.
 
 ### Screenshot Capture
 
@@ -209,7 +225,7 @@ RVZ is a compressed disk image format developed specifically for the Dolphin Emu
 - **Missing Dependencies**: Ensure `DolphinTool.exe` (or `DolphinTool_arm64.exe` for ARM64 systems) is present in the application directory.
 - **Permission Issues**: Make sure you have read permissions for input directories and write permissions for output directories.
 - **Archive Extraction Failures**: Verify that the archive files are not corrupted. The app now supports instant cancellation if extraction hangs.
-- **Conversion Errors**: Check the detailed real-time log output for specific error messages. Log files are also saved to `%LocalAppData%\BatchConvertToRVZ\logs\`.
+- **Conversion Errors**: Check the detailed real-time log output for specific error messages. Log files are also saved to `%LocalAppData%\RVZStudio\logs\`.
 - **Font-Related Rendering Issues**: If UI text fails to render on systems with missing or broken system fonts, the application stays running and logs the font error — consider restoring your system fonts.
 - **Performance Issues**: Try reducing the number of concurrent files if you experience system instability.
 - **Auto-Reporting**: The application automatically reports unexpected errors to developers for continuous improvement.
@@ -218,7 +234,7 @@ RVZ is a compressed disk image format developed specifically for the Dolphin Emu
 
 ### Project Structure
 ```
-BatchConvertToRVZ/
+RVZStudio/
 ├── Program.cs               # Entry point / Avalonia AppBuilder bootstrap
 ├── App.axaml                # Application resources, dark theme and control styles
 ├── App.axaml.cs             # Application entry point, global exception handling, Serilog bootstrap
@@ -248,14 +264,19 @@ BatchConvertToRVZ/
 │   └── SystemInfo.cs        # System information model
 ├── icon/                    # Application icons
 ├── images/                  # UI images (menu icons, logo)
-├── DolphinTool*.exe         # External conversion/verification tool (Windows)
-└── BatchConvertToRVZ.Tests/ # Unit tests (xUnit)
+└── DolphinTool*.exe         # External conversion/verification tool (Windows)
+RVZStudio.Tests/             # Unit tests (xUnit)
+doc/                         # Documentation (see doc/README.md)
+.github/workflows/           # CI and release pipelines
+publish.ps1                  # Multi-platform publish script
 ```
 
 ### Building from Source
 1. Install [.NET 10.0 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 2. Clone the repository
 3. Run `dotnet build` or open in Visual Studio / JetBrains Rider / Visual Studio Code
+
+See the [Building guide](doc/building.md) for full instructions.
 
 ### Publishing
 The `publish.ps1` script produces self-contained, single-file builds for every supported platform
@@ -269,9 +290,19 @@ can be launched as child processes.
 
 A single target can also be published manually:
 ```bash
-dotnet publish BatchConvertToRVZ/BatchConvertToRVZ.csproj -c Release -r linux-x64 \
+dotnet publish RVZStudio/RVZStudio.csproj -c Release -r linux-x64 \
     --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 ```
+
+### Continuous Integration
+GitHub Actions pipelines live in `.github/workflows/`:
+
+- **CI** (`ci.yml`) builds and tests on Windows, Linux and macOS for every push and pull request,
+  and smoke-tests Linux publishing.
+- **Release** (`release.yml`) publishes all six runtime identifiers and attaches the ZIP archives
+  to a GitHub Release when a `v*` tag is pushed.
+
+See the [Building guide](doc/building.md#continuous-integration) for details.
 
 ### Running Tests
 The project includes unit tests covering models and services using xUnit:
@@ -307,4 +338,4 @@ Your support helps us:
 
 ---
 
-Thank you for using **Batch Convert to RVZ**! For more information, support, and other useful tools, visit [purelogiccode.com](https://www.purelogiccode.com)
+Thank you for using **RVZStudio**! For more information, support, and other useful tools, visit [purelogiccode.com](https://www.purelogiccode.com)

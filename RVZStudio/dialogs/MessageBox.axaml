@@ -1,0 +1,32 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RVZStudio.dialogs.MessageBoxWindow"
+        Title="Message"
+        SizeToContent="WidthAndHeight"
+        MinWidth="360"
+        MaxWidth="620"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource WindowBackgroundBrush}">
+    <Grid Margin="20" RowDefinitions="Auto,Auto">
+        <StackPanel Orientation="Horizontal">
+            <TextBlock x:Name="IconText"
+                       FontSize="28"
+                       VerticalAlignment="Top"
+                       Margin="0,0,14,0"
+                       IsVisible="False" />
+            <TextBlock x:Name="MessageText"
+                       TextWrapping="Wrap"
+                       Foreground="{StaticResource TextPrimaryBrush}"
+                       FontSize="13"
+                       VerticalAlignment="Center"
+                       MaxWidth="500" />
+        </StackPanel>
+        <StackPanel x:Name="ButtonsPanel"
+                    Grid.Row="1"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,20,0,0" />
+    </Grid>
+</Window>
