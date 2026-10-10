@@ -10,8 +10,8 @@ namespace RVZStudio.Tests.Services;
 
 public class ConversionServiceTests : IDisposable
 {
-    private readonly FileService _fileService = new();
     private readonly List<string> _logMessages = [];
+    private readonly List<LogEventLevel> _logLevels = [];
     private readonly string _tempDir;
 
     public ConversionServiceTests()
@@ -41,16 +41,20 @@ public class ConversionServiceTests : IDisposable
     {
         var logger = new LoggerConfiguration()
             .MinimumLevel.Verbose()
-            .WriteTo.Sink(new DelegatingSink(msg => _logMessages.Add(msg)))
+            .WriteTo.Sink(new DelegatingSink((level, msg) =>
+            {
+                _logLevels.Add(level);
+                _logMessages.Add(msg);
+            }))
             .CreateLogger();
-        return new ConversionService(logger, _fileService);
+        return new ConversionService(logger);
     }
 
     private sealed class DelegatingSink : ILogEventSink
     {
-        private readonly Action<string> _onMessage;
+        private readonly Action<LogEventLevel, string> _onMessage;
 
-        public DelegatingSink(Action<string> onMessage)
+        public DelegatingSink(Action<LogEventLevel, string> onMessage)
         {
             _onMessage = onMessage;
         }
@@ -59,7 +63,7 @@ public class ConversionServiceTests : IDisposable
         {
             var sw = new StringWriter();
             logEvent.MessageTemplate.Render(logEvent.Properties, sw, CultureInfo.InvariantCulture);
-            _onMessage(sw.ToString());
+            _onMessage(logEvent.Level, sw.ToString());
         }
     }
 
@@ -83,7 +87,7 @@ public class ConversionServiceTests : IDisposable
     [Fact]
     public void Get7ZipExecutablePathReturnsPathEndingWith7ZipExe()
     {
-        var result = ConversionService.Get7ZipExecutablePath();
+        var result = ProcessHelper.Get7ZipExecutablePath();
 
         Assert.Contains(GetExpected7ZipExecutableName(), result);
     }
@@ -101,7 +105,7 @@ public class ConversionServiceTests : IDisposable
     [Fact]
     public void Get7ZipExecutablePathReturnsAbsolutePath()
     {
-        var result = ConversionService.Get7ZipExecutablePath();
+        var result = ProcessHelper.Get7ZipExecutablePath();
 
         Assert.True(Path.IsPathRooted(result));
     }
@@ -109,7 +113,7 @@ public class ConversionServiceTests : IDisposable
     [Fact]
     public void Get7ZipExecutablePathContainsBaseDirectory()
     {
-        var result = ConversionService.Get7ZipExecutablePath();
+        var result = ProcessHelper.Get7ZipExecutablePath();
         var baseDir = AppDomain.CurrentDomain.BaseDirectory;
 
         Assert.StartsWith(baseDir, result);
@@ -236,6 +240,12 @@ public class ConversionServiceTests : IDisposable
         Assert.Contains(_logMessages, static m => m.Contains("Falling back to DolphinTool"));
         Assert.Equal(0, successCount);
         Assert.Equal(1, failureCount);
+
+        // A missing optional DolphinTool is an expected environment condition and must not be
+        // logged at Warning or Error, because those levels are forwarded to the Bug Report API
+        // (regression: bug report 67998 "Missing critical files: DolphinTool.exe").
+        Assert.Contains(_logMessages, static m => m.Contains("fallback engine is unavailable"));
+        Assert.DoesNotContain(_logLevels, static level => level >= LogEventLevel.Warning);
     }
 
     [Fact]
@@ -303,5 +313,121 @@ public class ConversionServiceTests : IDisposable
 
         Assert.Contains(_logMessages, static m => m.Contains("Preparing for batch conversion"));
         Assert.Contains(_logMessages, static m => m.Contains("Processing:"));
+    }
+
+    [Fact]
+    public async Task PerformBatchConversionAsyncDirectRvzCopiesWithoutDeleting()
+    {
+        var service = CreateService();
+        var inputPath = Path.Combine(_tempDir, "game.rvz");
+        var outputFolder = Path.Combine(_tempDir, "output");
+        File.WriteAllBytes(inputPath, [1, 2, 3, 4, 5]);
+
+        var successCount = 0;
+
+        await service.PerformBatchConversionAsync(
+            @"C:\nonexistent_path\fake_dolphin.exe", [inputPath], outputFolder, false, "zstd", 5, 131072,
+            static (_, _, _) => { }, _ => successCount++, static _ => { }, CancellationToken.None);
+
+        Assert.Equal(1, successCount);
+        Assert.True(File.Exists(inputPath));
+        Assert.True(File.Exists(Path.Combine(outputFolder, "game.rvz")));
+        Assert.Contains(_logMessages, static m => m.Contains("already in RVZ format, copying"));
+    }
+
+    [Fact]
+    public async Task PerformBatchConversionAsyncDirectRvzDeletesOriginalWhenRequested()
+    {
+        var service = CreateService();
+        var inputPath = Path.Combine(_tempDir, "game.rvz");
+        var outputFolder = Path.Combine(_tempDir, "output");
+        File.WriteAllBytes(inputPath, [1, 2, 3, 4, 5]);
+
+        var successCount = 0;
+
+        await service.PerformBatchConversionAsync(
+            @"C:\nonexistent_path\fake_dolphin.exe", [inputPath], outputFolder, true, "zstd", 5, 131072,
+            static (_, _, _) => { }, _ => successCount++, static _ => { }, CancellationToken.None);
+
+        Assert.Equal(1, successCount);
+        Assert.False(File.Exists(inputPath));
+        Assert.True(File.Exists(Path.Combine(outputFolder, "game.rvz")));
+        Assert.Contains(_logMessages, static m => m.Contains("Deleted original file"));
+    }
+
+    [Fact]
+    public async Task PerformBatchConversionAsyncCreatesOutputFolder()
+    {
+        var service = CreateService();
+        var inputPath = Path.Combine(_tempDir, "game.rvz");
+        File.WriteAllBytes(inputPath, [1, 2, 3]);
+        var outputFolder = Path.Combine(_tempDir, "nested", "output");
+
+        await service.PerformBatchConversionAsync(
+            @"C:\nonexistent_path\fake_dolphin.exe", [inputPath], outputFolder, false, "zstd", 5, 131072,
+            static (_, _, _) => { }, static _ => { }, static _ => { }, CancellationToken.None);
+
+        Assert.True(Directory.Exists(outputFolder));
+        Assert.True(File.Exists(Path.Combine(outputFolder, "game.rvz")));
+    }
+
+    [Fact]
+    public async Task PerformBatchConversionAsyncCreatesOutputFolderForNativeEngine()
+    {
+        var service = CreateService();
+        var isoPath = Path.Combine(_tempDir, "game.iso");
+        var content = new byte[350_000];
+        new Random(42).NextBytes(content);
+        content[0x1C] = 0xC2;
+        content[0x1D] = 0x33;
+        content[0x1E] = 0x9F;
+        content[0x1F] = 0x3D;
+        File.WriteAllBytes(isoPath, content);
+
+        // The output folder does not exist yet: the service must create it before encoding.
+        var outputFolder = Path.Combine(_tempDir, "nested", "native-output");
+
+        var successCount = 0;
+
+        await service.PerformBatchConversionAsync(
+            @"C:\nonexistent_path\fake_dolphin.exe", [isoPath], outputFolder, false, "zstd", 5, 131072,
+            static (_, _, _) => { }, _ => successCount++, static _ => { }, CancellationToken.None);
+
+        Assert.Equal(1, successCount);
+        Assert.True(File.Exists(Path.Combine(outputFolder, "game.rvz")));
+        Assert.Contains(_logMessages, static m => m.Contains("Converted to RVZ using RVZSharp"));
+    }
+
+    [Fact]
+    public async Task PerformBatchConversionAsyncProgressCallbackReceivesTotalAndFileName()
+    {
+        var service = CreateService();
+        var inputPath = Path.Combine(_tempDir, "game.rvz");
+        File.WriteAllBytes(inputPath, [1, 2, 3]);
+        var progress = new List<(int Processed, int Total, string Name)>();
+
+        await service.PerformBatchConversionAsync(
+            @"C:\nonexistent_path\fake_dolphin.exe", [inputPath], _tempDir, false, "zstd", 5, 131072,
+            (processed, total, name) => progress.Add((processed, total, name)), static _ => { }, static _ => { },
+            CancellationToken.None);
+
+        var entry = Assert.Single(progress);
+        Assert.Equal(1, entry.Processed);
+        Assert.Equal(1, entry.Total);
+        Assert.Equal("game.rvz", entry.Name);
+    }
+
+    [Fact]
+    public async Task PerformBatchConversionAsyncStripsCompoundExtensionForOutputName()
+    {
+        var service = CreateService();
+        var inputPath = Path.Combine(_tempDir, "game.nkit.iso");
+        File.WriteAllBytes(inputPath, new byte[100]);
+
+        await service.PerformBatchConversionAsync(
+            @"C:\nonexistent_path\fake_dolphin.exe", [inputPath], _tempDir, false, "zstd", 5, 131072,
+            static (_, _, _) => { }, static _ => { }, static _ => { }, CancellationToken.None);
+
+        Assert.Contains(_logMessages, static m => m.Contains("game.nkit.iso -> game.rvz"));
     }
 }

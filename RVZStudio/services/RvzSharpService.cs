@@ -112,13 +112,23 @@ public class RvzSharpService
                 return false;
             }
 
+            var compression = MapCompressionMethod(compressionMethod);
+            if (compression is null)
+            {
+                // Never silently substitute a different codec for the requested one.
+                _logger.Information(
+                    "RVZSharp does not support compression method {CompressionMethod} for {FileName}. Falling back to DolphinTool.",
+                    compressionMethod, Path.GetFileName(inputFile));
+                return false;
+            }
+
             using var input = Blob.Open(inputFile);
             LogDiscInfo(input, inputFile);
             using var output = File.Create(outputFile);
 
             var options = new RvzWriteOptions
             {
-                Compression = MapCompressionMethod(compressionMethod),
+                Compression = compression.Value,
                 CompressionLevel = compressionLevel,
                 ChunkSize = blockSize,
                 Packing = true,
@@ -533,16 +543,18 @@ public class RvzSharpService
     }
 
     /// <summary>
-    /// Maps an application compression method name to the library's <see cref="CompressionType"/>.
+    /// Maps an application compression method name to the library's <see cref="CompressionType"/>,
+    /// or null when the library cannot write that method.
     /// </summary>
-    private static CompressionType MapCompressionMethod(string compressionMethod)
+    private static CompressionType? MapCompressionMethod(string compressionMethod)
     {
         return compressionMethod.ToLowerInvariant() switch
         {
+            "zstd" => CompressionType.Zstd,
             "bzip2" => CompressionType.Bzip2,
             "lzma" => CompressionType.Lzma,
             "lzma2" => CompressionType.Lzma2,
-            _ => CompressionType.Zstd
+            _ => null
         };
     }
 
@@ -558,9 +570,10 @@ public class RvzSharpService
                 File.Delete(outputFile);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Ignore cleanup errors
+            // Ignore cleanup errors, but keep a debug trace.
+            Log.Debug(ex, "Failed to delete partial output {OutputFile}", outputFile);
         }
     }
 }

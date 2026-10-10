@@ -5,17 +5,38 @@ using Serilog;
 
 namespace RVZStudio.services;
 
+/// <summary>
+/// Verifies the integrity of RVZ/WIA disc images. RVZSharp is the primary engine (Dolphin's
+/// volume verifier); DolphinTool is used as a fallback when the native engine cannot verify.
+/// </summary>
 public class VerificationService
 {
     private readonly ILogger _logger;
     private readonly RvzSharpService _rvzSharpService;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="VerificationService"/> class.
+    /// </summary>
+    /// <param name="logger">The logger used to report verification activity and failures.</param>
+    /// <param name="rvzSharpService">The native engine, or null to create a new one.</param>
     public VerificationService(ILogger logger, RvzSharpService? rvzSharpService = null)
     {
         _logger = logger.ForContext<VerificationService>();
         _rvzSharpService = rvzSharpService ?? new RvzSharpService(logger);
     }
 
+    /// <summary>
+    /// Verifies a batch of RVZ files, reporting progress and per-file success/failure.
+    /// </summary>
+    /// <param name="dolphinToolPath">Path to the optional DolphinTool fallback executable.</param>
+    /// <param name="files">The RVZ file paths to verify.</param>
+    /// <param name="moveFailed">Whether to move failed files into a "_Failed" subfolder.</param>
+    /// <param name="moveSuccess">Whether to move successful files into a "_Success" subfolder.</param>
+    /// <param name="updateProgress">Receives (processed, total, currentFileName) after each file.</param>
+    /// <param name="incrementSuccess">Called with the number of newly succeeded files.</param>
+    /// <param name="incrementFailure">Called with the number of newly failed files.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <param name="fileProgress">Optional per-file progress receiver (fraction in [0, 1]).</param>
     public async Task PerformBatchVerificationAsync(
         string dolphinToolPath,
         string[] files,
@@ -144,10 +165,10 @@ public class VerificationService
         {
             if (!ProcessHelper.ExecutableExists(dolphinToolPath))
             {
-                _logger.Error("DolphinTool is missing. {Message:l}",
-                    ProcessHelper.GetMissingExecutableMessage(dolphinToolPath));
-                throw new FileNotFoundException(ProcessHelper.GetMissingExecutableMessage(dolphinToolPath),
-                    dolphinToolPath);
+                // DolphinTool is an optional fallback; a missing helper is an expected environment
+                // condition, so log it at Information level (no bug report) and fail this file.
+                _logger.Information("{Message:l}", ProcessHelper.GetMissingExecutableMessage(dolphinToolPath));
+                return false;
             }
 
             ProcessHelper.EnsureExecutable(dolphinToolPath);
@@ -271,7 +292,9 @@ public class VerificationService
 
             if (tempWorkingDirectory != null)
             {
-                _ = Task.Run(async () => await DeleteDirectoryAsync(tempWorkingDirectory), token);
+                // Cleanup must not depend on the operation token: when the user cancels,
+                // the token is already canceled and the task would never run, leaking the folder.
+                _ = DeleteDirectoryAsync(tempWorkingDirectory);
             }
         }
 
@@ -318,7 +341,9 @@ public class VerificationService
         }
         catch (Exception ex)
         {
-            _logger.Information("{Message:l}", $"Failed to move file to {subfolderName} folder: {ex.Message}");
+            // A real move failure (locked file, access denied) must be visible and reported
+            // to the Bug Report API instead of looking like a success.
+            _logger.Warning(ex, "Failed to move file to {SubfolderName} folder", subfolderName);
         }
     }
 
@@ -333,7 +358,8 @@ public class VerificationService
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
         {
-            // Silently ignore cleanup errors
+            // Cleanup is best-effort only.
+            Log.Debug(ex, "Failed to delete temporary directory {Path}", path);
         }
     }
 }

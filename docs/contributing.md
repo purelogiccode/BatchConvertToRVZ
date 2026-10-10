@@ -7,7 +7,7 @@ changes and follow the project conventions.
 
 - **Report bugs** — open an issue with reproduction steps and log output.
 - **Request features** — describe the use case and the expected behavior.
-- **Improve documentation** — the `doc/` folder and the root `ReadMe.md` are good starting points.
+- **Improve documentation** — the `docs/` folder and the root `ReadMe.md` are good starting points.
 - **Submit code** — bug fixes, platform fixes and new features are welcome.
 - **Star the project** — it helps others discover RVZStudio.
 
@@ -81,7 +81,7 @@ docs: document the release workflow
 - [ ] The solution builds with zero warnings.
 - [ ] `dotnet test` passes.
 - [ ] New behavior is covered by tests where practical.
-- [ ] Documentation (`ReadMe.md`, `doc/`) is updated when user-facing behavior changes.
+- [ ] Documentation (`ReadMe.md`, `docs/`) is updated when user-facing behavior changes.
 - [ ] The commit history is clean and follows the conventions above.
 
 ## License

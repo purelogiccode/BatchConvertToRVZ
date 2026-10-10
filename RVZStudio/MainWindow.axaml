@@ -4,35 +4,36 @@
         Title="RVZStudio"
         Height="850" Width="1200" MinHeight="700" MinWidth="900"
         Closing="Window_Closing"
-        KeyDown="Window_KeyDown"
+        KeyDown="Window_KeyDownAsync"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource WindowBackgroundBrush}">
-    <Grid RowDefinitions="Auto,*,Auto">
+        Background="{StaticResource WindowBackgroundBrush}"
+        ToolTip.Tip="RVZStudio - batch converter for GameCube and Wii disc images">
+    <Grid RowDefinitions="Auto,*,Auto" ToolTip.Tip="Main application layout">
 
         <!-- Header -->
-        <Border Grid.Row="0" Background="{StaticResource HeaderBackgroundBrush}" Padding="15">
-            <Grid ColumnDefinitions="Auto,*,Auto">
-                <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <TextBlock Text="RVZStudio" FontSize="20" FontWeight="Bold" Foreground="{StaticResource HeaderTextBrush}" VerticalAlignment="Center" Margin="0,0,30,0" />
+        <Border Grid.Row="0" Background="{StaticResource HeaderBackgroundBrush}" Padding="15" ToolTip.Tip="Application header with title and commands">
+            <Grid ColumnDefinitions="Auto,*,Auto" ToolTip.Tip="Application header">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" ToolTip.Tip="Application title">
+                    <TextBlock Text="RVZStudio" FontSize="20" FontWeight="Bold" Foreground="{StaticResource HeaderTextBrush}" VerticalAlignment="Center" Margin="0,0,30,0" ToolTip.Tip="RVZStudio - batch converter for GameCube and Wii disc images" />
                 </StackPanel>
 
-                <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <Button Click="CheckForUpdatesMenuItem_Click" Theme="{StaticResource ActionButtonStyle}" Background="{StaticResource InfoTextBrush}" ToolTip.Tip="Check for application updates">
-                        <StackPanel Orientation="Horizontal">
-                            <Image Source="avares://RVZStudio/images/update.png" Width="16" Height="16" Margin="0,0,5,0" />
-                            <TextBlock Text="Updates" Foreground="{StaticResource ButtonTextDarkBrush}" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="2" Orientation="Horizontal" ToolTip.Tip="Application commands">
+                    <Button Click="CheckForUpdatesMenuItem_ClickAsync" Theme="{StaticResource ActionButtonStyle}" Background="{StaticResource InfoTextBrush}" ToolTip.Tip="Check for application updates">
+                        <StackPanel Orientation="Horizontal" ToolTip.Tip="Check for application updates">
+                            <Image Source="avares://RVZStudio/images/update.png" Width="16" Height="16" Margin="0,0,5,0" ToolTip.Tip="Update icon" />
+                            <TextBlock Text="Updates" Foreground="{StaticResource ButtonTextDarkBrush}" VerticalAlignment="Center" ToolTip.Tip="Check for application updates" />
                         </StackPanel>
                     </Button>
                     <Button Click="AboutMenuItem_Click" Theme="{StaticResource ActionButtonStyle}" Background="{StaticResource AboutButtonBrush}" ToolTip.Tip="View application information and acknowledgements">
-                        <StackPanel Orientation="Horizontal">
-                            <Image Source="avares://RVZStudio/images/about.png" Width="16" Height="16" Margin="0,0,5,0" />
-                            <TextBlock Text="About" Foreground="{StaticResource ButtonTextDarkBrush}" VerticalAlignment="Center" />
+                        <StackPanel Orientation="Horizontal" ToolTip.Tip="View application information and acknowledgements">
+                            <Image Source="avares://RVZStudio/images/about.png" Width="16" Height="16" Margin="0,0,5,0" ToolTip.Tip="About icon" />
+                            <TextBlock Text="About" Foreground="{StaticResource ButtonTextDarkBrush}" VerticalAlignment="Center" ToolTip.Tip="View application information and acknowledgements" />
                         </StackPanel>
                     </Button>
                     <Button Click="ExitMenuItem_Click" Theme="{StaticResource ActionButtonStyle}" Background="{StaticResource ExitButtonBrush}" ToolTip.Tip="Close the application">
-                        <StackPanel Orientation="Horizontal">
-                            <Image Source="avares://RVZStudio/images/exit.png" Width="16" Height="16" Margin="0,0,5,0" />
-                            <TextBlock Text="Exit" Foreground="{StaticResource ButtonTextDarkBrush}" VerticalAlignment="Center" />
+                        <StackPanel Orientation="Horizontal" ToolTip.Tip="Close the application">
+                            <Image Source="avares://RVZStudio/images/exit.png" Width="16" Height="16" Margin="0,0,5,0" ToolTip.Tip="Exit icon" />
+                            <TextBlock Text="Exit" Foreground="{StaticResource ButtonTextDarkBrush}" VerticalAlignment="Center" ToolTip.Tip="Close the application" />
                         </StackPanel>
                     </Button>
                 </StackPanel>
@@ -40,75 +41,75 @@
         </Border>
 
         <!-- Main Content Area -->
-        <Grid Grid.Row="1" Margin="15" RowDefinitions="*,Auto,Auto">
+        <Grid Grid.Row="1" Margin="15" RowDefinitions="*,Auto,Auto" ToolTip.Tip="Main content area">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" MinWidth="300" />    <!-- 0: Left Column - Controls & Settings -->
                 <ColumnDefinition Width="5" />   <!-- 1: Grid Splitter -->
                 <ColumnDefinition Width="*" MinWidth="300" />   <!-- 2: Right Column - Log Viewer -->
             </Grid.ColumnDefinitions>
 
-            <TabControl Grid.Column="0" Grid.Row="0" x:Name="MainTabControl" Background="Transparent" BorderThickness="0" VerticalAlignment="Stretch" Padding="0">
+            <TabControl Grid.Column="0" Grid.Row="0" x:Name="MainTabControl" Background="Transparent" BorderThickness="0" VerticalAlignment="Stretch" Padding="0" ToolTip.Tip="Conversion, verification, extraction and explorer tools">
                 <TabItem Header="Convert to RVZ" ToolTip.Tip="Batch convert GameCube/Wii ISO images to RVZ">
-                    <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="0,0,6,6" Padding="15" VerticalAlignment="Stretch">
-                        <Grid VerticalAlignment="Stretch" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto">
+                    <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="0,0,6,6" Padding="15" VerticalAlignment="Stretch" ToolTip.Tip="Batch conversion controls">
+                        <Grid VerticalAlignment="Stretch" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" ToolTip.Tip="Batch conversion controls">
 
                             <!-- Input Folder Selection -->
-                            <Grid Grid.Row="0" Margin="0,0,0,10" ColumnDefinitions="120,*,Auto">
+                            <Grid Grid.Row="0" Margin="0,0,0,10" ColumnDefinitions="120,*,Auto" ToolTip.Tip="Input folder selection">
                                 <TextBlock Text="Input Folder:" ToolTip.Tip="Select the folder containing ISO/GCM/WBFS/RVZ files to convert" />
                                 <TextBox x:Name="InputFolderTextBox" Grid.Column="1" Margin="5,0" IsReadOnly="True" ToolTip.Tip="The folder containing game files to be converted" />
-                                <Button x:Name="BrowseInputButton" Grid.Column="2" Content="Browse..." Click="BrowseInputButton_Click" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for the input folder containing game files" />
+                                <Button x:Name="BrowseInputButton" Grid.Column="2" Content="Browse..." Click="BrowseInputButton_ClickAsync" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for the input folder containing game files" />
                             </Grid>
 
                             <!-- Output Folder Selection -->
-                            <Grid Grid.Row="1" Margin="0,0,0,10" ColumnDefinitions="120,*,Auto">
+                            <Grid Grid.Row="1" Margin="0,0,0,10" ColumnDefinitions="120,*,Auto" ToolTip.Tip="Output folder selection">
                                 <TextBlock Text="Output Folder:" ToolTip.Tip="Select where the converted RVZ files will be saved" />
                                 <TextBox x:Name="OutputFolderTextBox" Grid.Column="1" Margin="5,0" IsReadOnly="True" ToolTip.Tip="The destination folder for converted RVZ files. This must be different from the input folder." />
-                                <Button x:Name="BrowseOutputButton" Grid.Column="2" Content="Browse..." Click="BrowseOutputButton_Click" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for the output folder where converted files will be saved" />
+                                <Button x:Name="BrowseOutputButton" Grid.Column="2" Content="Browse..." Click="BrowseOutputButton_ClickAsync" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for the output folder where converted files will be saved" />
                             </Grid>
 
                             <!-- Options Grid -->
-                            <Grid Grid.Row="2" ColumnDefinitions="*,*">
+                            <Grid Grid.Row="2" ColumnDefinitions="*,*" ToolTip.Tip="Conversion options">
 
                                 <!-- Left Column: General Settings -->
-                                <Expander Grid.Column="0" Header="General Settings" Margin="0,5,5,10" Padding="10" IsExpanded="False">
-                                    <StackPanel>
+                                <Expander Grid.Column="0" Header="General Settings" Margin="0,5,5,10" Padding="10" IsExpanded="False" ToolTip.Tip="General conversion options">
+                                    <StackPanel ToolTip.Tip="General conversion options">
                                         <CheckBox x:Name="DeleteFilesCheckBox" Content="Delete original files after conversion" Margin="0,5" HorizontalAlignment="Left" ToolTip.Tip="WARNING: Permanently deletes source files after successful conversion. Use with caution!" />
                                         <CheckBox x:Name="ScrubCheckBox" Content="Scrub non-game Wii partitions (update/channel)" Margin="0,5" HorizontalAlignment="Left" IsChecked="False" ToolTip.Tip="Zeroes the data of non-game Wii partitions before encoding, making RVZ files smaller. Ignored for GameCube discs." />
                                     </StackPanel>
                                 </Expander>
 
                                 <!-- Right Column: Compression Settings -->
-                                <Expander Grid.Column="1" Header="Compression Settings" Margin="5,5,0,10" Padding="10" IsExpanded="False">
-                                    <StackPanel>
-                                        <Grid Margin="0,0,0,5" ColumnDefinitions="80,*">
+                                <Expander Grid.Column="1" Header="Compression Settings" Margin="5,5,0,10" Padding="10" IsExpanded="False" ToolTip.Tip="RVZ compression options">
+                                    <StackPanel ToolTip.Tip="RVZ compression options">
+                                        <Grid Margin="0,0,0,5" ColumnDefinitions="80,*" ToolTip.Tip="Compression method selection">
                                             <TextBlock Text="Method:" VerticalAlignment="Center" ToolTip.Tip="Compression algorithm" />
                                             <ComboBox x:Name="CompressionMethodComboBox" Grid.Column="1" VerticalAlignment="Center" SelectedIndex="0" SelectionChanged="CompressionMethodComboBox_SelectionChanged" ToolTip.Tip="Compression algorithm used for RVZ files">
-                                                <ComboBoxItem Content="zstd (Zstandard)" Tag="zstd" />
-                                                <ComboBoxItem Content="zlib" Tag="zlib" />
-                                                <ComboBoxItem Content="lzma" Tag="lzma" />
-                                                <ComboBoxItem Content="lzma2" Tag="lzma2" />
-                                                <ComboBoxItem Content="bzip2" Tag="bzip2" />
-                                                <ComboBoxItem Content="lz4" Tag="lz4" />
+                                                <ComboBoxItem Content="zstd (Zstandard)" Tag="zstd" ToolTip.Tip="Zstandard: fast with a very good compression ratio (recommended)" />
+                                                <ComboBoxItem Content="zlib" Tag="zlib" ToolTip.Tip="zlib: legacy format, moderate compression, DolphinTool only" />
+                                                <ComboBoxItem Content="lzma" Tag="lzma" ToolTip.Tip="LZMA: slower but compresses better than zlib" />
+                                                <ComboBoxItem Content="lzma2" Tag="lzma2" ToolTip.Tip="LZMA2: improved LZMA with better multi-threading support" />
+                                                <ComboBoxItem Content="bzip2" Tag="bzip2" ToolTip.Tip="bzip2: good compression at slow speeds" />
+                                                <ComboBoxItem Content="lz4" Tag="lz4" ToolTip.Tip="LZ4: very fast, lower compression ratio, DolphinTool only" />
                                             </ComboBox>
                                         </Grid>
 
-                                        <Grid Margin="0,0,0,5" ColumnDefinitions="80,*,30">
+                                        <Grid Margin="0,0,0,5" ColumnDefinitions="80,*,30" ToolTip.Tip="Compression level selection">
                                             <TextBlock Text="Level:" VerticalAlignment="Center" ToolTip.Tip="Compression level" />
                                             <Slider x:Name="CompressionLevelSlider" Grid.Column="1" VerticalAlignment="Center" Minimum="1" Maximum="22" Value="5" TickFrequency="1" IsSnapToTickEnabled="True" ValueChanged="CompressionLevelSlider_ValueChanged"
                                                     ToolTip.Tip="Compression level (higher = better compression but slower)" />
                                             <TextBlock x:Name="CompressionLevelValue" Grid.Column="2" Text="5" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold" Foreground="{StaticResource PrimaryAccentBrush}" ToolTip.Tip="Current compression level" />
                                         </Grid>
 
-                                        <Grid Margin="0,0,0,0" ColumnDefinitions="80,*">
+                                        <Grid Margin="0,0,0,0" ColumnDefinitions="80,*" ToolTip.Tip="Block size selection">
                                             <TextBlock Text="Block Size:" VerticalAlignment="Center" ToolTip.Tip="Block size for RVZ container" />
                                             <ComboBox x:Name="BlockSizeComboBox" Grid.Column="1" VerticalAlignment="Center" SelectedIndex="2" ToolTip.Tip="Block size for RVZ container (affects compression efficiency)">
-                                                <ComboBoxItem Content="32 KB" Tag="32768" />
-                                                <ComboBoxItem Content="64 KB" Tag="65536" />
-                                                <ComboBoxItem Content="128 KB" Tag="131072" />
-                                                <ComboBoxItem Content="256 KB" Tag="262144" />
-                                                <ComboBoxItem Content="512 KB" Tag="524288" />
-                                                <ComboBoxItem Content="1 MB" Tag="1048576" />
-                                                <ComboBoxItem Content="2 MB" Tag="2097152" />
+                                                <ComboBoxItem Content="32 KB" Tag="32768" ToolTip.Tip="32 KB block size" />
+                                                <ComboBoxItem Content="64 KB" Tag="65536" ToolTip.Tip="64 KB block size" />
+                                                <ComboBoxItem Content="128 KB" Tag="131072" ToolTip.Tip="128 KB block size (default)" />
+                                                <ComboBoxItem Content="256 KB" Tag="262144" ToolTip.Tip="256 KB block size" />
+                                                <ComboBoxItem Content="512 KB" Tag="524288" ToolTip.Tip="512 KB block size" />
+                                                <ComboBoxItem Content="1 MB" Tag="1048576" ToolTip.Tip="1 MB block size" />
+                                                <ComboBoxItem Content="2 MB" Tag="2097152" ToolTip.Tip="2 MB block size" />
                                             </ComboBox>
                                         </Grid>
                                     </StackPanel>
@@ -116,7 +117,7 @@
                             </Grid>
 
                             <TextBlock Grid.Row="3" Text="Select Files to Convert:" Margin="0,5,0,0" FontWeight="Bold" ToolTip.Tip="List of files to convert. Check a file to include it in the batch." />
-                            <Grid Grid.Row="4" Margin="0,5" VerticalAlignment="Stretch">
+                            <Grid Grid.Row="4" Margin="0,5" VerticalAlignment="Stretch" ToolTip.Tip="Conversion file list">
                                 <DataGrid x:Name="ConversionFilesDataGrid" AutoGenerateColumns="False" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" SelectionMode="Single"
                                           DragDrop.AllowDrop="True" DragDrop.Drop="ConversionFilesDataGrid_Drop" DragDrop.DragOver="ConversionFilesDataGrid_DragOver" ToolTip.Tip="Drag and drop ISO, GCM, WBFS, GCZ, WIA, CISO/WBI, TGC, NFS, NKIT.ISO, ZIP, 7Z, or RAR files here">
                                     <DataGrid.Columns>
@@ -126,29 +127,29 @@
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </Grid>
-                            <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10">
+                            <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10" ToolTip.Tip="Selection shortcuts">
                                 <Button Content="Select All" Click="SelectAllConversion_Click" Theme="{StaticResource ActionButtonStyle}" Margin="5,0" ToolTip.Tip="Select all files for conversion" />
                                 <Button Content="Deselect All" Click="DeselectAllConversion_Click" Theme="{StaticResource ActionButtonStyle}" Margin="5,0" ToolTip.Tip="Deselect all files from conversion" />
                             </StackPanel>
 
-                            <Button Grid.Row="6" x:Name="StartConversionButton" Content="Start Conversion" Click="StartConversionButton_Click" Theme="{StaticResource StartButtonStyle}" HorizontalAlignment="Stretch" ToolTip.Tip="Begin the batch conversion process" />
+                            <Button Grid.Row="6" x:Name="StartConversionButton" Content="Start Conversion" Click="StartConversionButton_ClickAsync" Theme="{StaticResource StartButtonStyle}" HorizontalAlignment="Stretch" ToolTip.Tip="Begin the batch conversion process" />
                         </Grid>
                     </Border>
                 </TabItem>
 
                 <TabItem Header="Verify Integrity of RVZ" ToolTip.Tip="Verify the integrity of existing RVZ files">
-                    <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="0,0,6,6" Padding="15" VerticalAlignment="Stretch">
-                        <Grid VerticalAlignment="Stretch" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+                    <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="0,0,6,6" Padding="15" VerticalAlignment="Stretch" ToolTip.Tip="RVZ verification controls">
+                        <Grid VerticalAlignment="Stretch" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" ToolTip.Tip="RVZ verification controls">
 
                             <!-- Verify Folder Selection -->
-                            <Grid Grid.Row="0" Margin="0,0,0,10" ColumnDefinitions="120,*,Auto">
+                            <Grid Grid.Row="0" Margin="0,0,0,10" ColumnDefinitions="120,*,Auto" ToolTip.Tip="Verification folder selection">
                                 <TextBlock Text="Verify Folder:" ToolTip.Tip="Select the folder containing RVZ files to verify" />
                                 <TextBox x:Name="VerifyFolderTextBox" Grid.Column="1" Margin="5,0" IsReadOnly="True" ToolTip.Tip="The folder containing RVZ files to be verified" />
-                                <Button x:Name="BrowseVerifyFolderButton" Grid.Column="2" Content="Browse..." Click="BrowseVerifyFolderButton_Click" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for the folder containing RVZ files to verify" />
+                                <Button x:Name="BrowseVerifyFolderButton" Grid.Column="2" Content="Browse..." Click="BrowseVerifyFolderButton_ClickAsync" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for the folder containing RVZ files to verify" />
                             </Grid>
 
-                            <Expander Grid.Row="1" Header="General Settings" Margin="0,5,0,10" Padding="10" IsExpanded="False">
-                                <StackPanel>
+                            <Expander Grid.Row="1" Header="General Settings" Margin="0,5,0,10" Padding="10" IsExpanded="False" ToolTip.Tip="General verification options">
+                                <StackPanel ToolTip.Tip="General verification options">
                                     <CheckBox x:Name="MoveFailedCheckBox" Content="Move failed RVZ files to '_Failed' subfolder" Margin="0,5" HorizontalAlignment="Left" IsChecked="False" ToolTip.Tip="Move files that fail verification to a separate folder" />
                                     <CheckBox x:Name="MoveSuccessCheckBox" Content="Move successful RVZ files to '_Success' subfolder" Margin="0,5" HorizontalAlignment="Left" IsChecked="False" ToolTip.Tip="Move successfully verified files to a separate folder" />
                                     <CheckBox x:Name="IncludeSubfoldersVerifyCheckBox" Content="Include subfolders" Margin="0,5" HorizontalAlignment="Left" IsChecked="False" ToolTip.Tip="Search for RVZ files in subfolders as well" IsCheckedChanged="IncludeSubfoldersVerify_Changed" />
@@ -156,7 +157,7 @@
                             </Expander>
 
                             <TextBlock Grid.Row="2" Text="Select Files to Verify:" Margin="0,5,0,0" FontWeight="Bold" ToolTip.Tip="List of RVZ files to verify. Check a file to include it in the batch." />
-                            <Grid Grid.Row="3" Margin="0,5" VerticalAlignment="Stretch">
+                            <Grid Grid.Row="3" Margin="0,5" VerticalAlignment="Stretch" ToolTip.Tip="Verification file list">
                                 <DataGrid x:Name="VerificationFilesDataGrid" AutoGenerateColumns="False" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" SelectionMode="Single"
                                           DragDrop.AllowDrop="True" DragDrop.Drop="VerificationFilesDataGrid_Drop" DragDrop.DragOver="VerificationFilesDataGrid_DragOver" ToolTip.Tip="Drag and drop RVZ files here">
                                     <DataGrid.Columns>
@@ -166,53 +167,53 @@
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </Grid>
-                            <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10">
+                            <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10" ToolTip.Tip="Selection shortcuts">
                                 <Button Content="Select All" Click="SelectAllVerification_Click" Theme="{StaticResource ActionButtonStyle}" Margin="5,0" ToolTip.Tip="Select all files for verification" />
                                 <Button Content="Deselect All" Click="DeselectAllVerification_Click" Theme="{StaticResource ActionButtonStyle}" Margin="5,0" ToolTip.Tip="Deselect all files from verification" />
                             </StackPanel>
 
-                            <Button Grid.Row="5" x:Name="StartVerifyButton" Content="Start Verification" Click="StartVerifyButton_Click" Theme="{StaticResource StartButtonStyle}" HorizontalAlignment="Stretch" ToolTip.Tip="Begin the verification process" />
+                            <Button Grid.Row="5" x:Name="StartVerifyButton" Content="Start Verification" Click="StartVerifyButton_ClickAsync" Theme="{StaticResource StartButtonStyle}" HorizontalAlignment="Stretch" ToolTip.Tip="Begin the verification process" />
                         </Grid>
                     </Border>
                 </TabItem>
 
                 <TabItem Header="Extract from RVZ" ToolTip.Tip="Extract RVZ files">
-                    <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="0,0,6,6" Padding="15" VerticalAlignment="Stretch">
-                        <Grid VerticalAlignment="Stretch" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto">
+                    <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="0,0,6,6" Padding="15" VerticalAlignment="Stretch" ToolTip.Tip="RVZ extraction controls">
+                        <Grid VerticalAlignment="Stretch" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" ToolTip.Tip="RVZ extraction controls">
 
                             <!-- Input Folder Selection -->
-                            <Grid Grid.Row="0" Margin="0,0,0,10" ColumnDefinitions="120,*,Auto">
+                            <Grid Grid.Row="0" Margin="0,0,0,10" ColumnDefinitions="120,*,Auto" ToolTip.Tip="Extraction input folder selection">
                                 <TextBlock Text="Input Folder:" ToolTip.Tip="Select the folder containing RVZ files to extract" />
                                 <TextBox x:Name="ExtractInputFolderTextBox" Grid.Column="1" Margin="5,0" IsReadOnly="True" ToolTip.Tip="The folder containing RVZ files to be extracted" />
-                                <Button x:Name="BrowseExtractInputButton" Grid.Column="2" Content="Browse..." Click="BrowseExtractInputButton_Click" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for the input folder containing RVZ files" />
+                                <Button x:Name="BrowseExtractInputButton" Grid.Column="2" Content="Browse..." Click="BrowseExtractInputButton_ClickAsync" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for the input folder containing RVZ files" />
                             </Grid>
 
                             <!-- Output Folder Selection -->
-                            <Grid Grid.Row="1" Margin="0,0,0,10" ColumnDefinitions="120,*,Auto">
+                            <Grid Grid.Row="1" Margin="0,0,0,10" ColumnDefinitions="120,*,Auto" ToolTip.Tip="Extraction output folder selection">
                                 <TextBlock Text="Output Folder:" ToolTip.Tip="Select where the extracted ISO files will be saved" />
                                 <TextBox x:Name="ExtractOutputFolderTextBox" Grid.Column="1" Margin="5,0" IsReadOnly="True" ToolTip.Tip="The destination folder for extracted ISO files. This must be different from the input folder." />
-                                <Button x:Name="BrowseExtractOutputButton" Grid.Column="2" Content="Browse..." Click="BrowseExtractOutputButton_Click" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for the output folder where extracted files will be saved" />
+                                <Button x:Name="BrowseExtractOutputButton" Grid.Column="2" Content="Browse..." Click="BrowseExtractOutputButton_ClickAsync" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for the output folder where extracted files will be saved" />
                             </Grid>
 
-                            <Expander Grid.Row="2" Header="General Settings" Margin="0,5,0,10" Padding="10" IsExpanded="False">
-                                <StackPanel>
+                            <Expander Grid.Row="2" Header="General Settings" Margin="0,5,0,10" Padding="10" IsExpanded="False" ToolTip.Tip="General extraction options">
+                                <StackPanel ToolTip.Tip="General extraction options">
                                     <CheckBox x:Name="DeleteExtractedFilesCheckBox" Content="Delete original RVZ files after extraction" Margin="0,5" HorizontalAlignment="Left" ToolTip.Tip="WARNING: Permanently deletes source RVZ files after successful extraction. Use with caution!" />
-                                    <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                    <StackPanel Orientation="Horizontal" Margin="0,5,0,0" ToolTip.Tip="Output format selection">
                                         <TextBlock Text="Output Format:" VerticalAlignment="Center" ToolTip.Tip="The target file format for extracted files" />
                                         <ComboBox x:Name="ExtractOutputFormatComboBox" Width="120" Margin="5,0,0,0" SelectedIndex="0" ToolTip.Tip="Select the output format for extracted files">
-                                            <ComboBoxItem Content="ISO" />
-                                            <ComboBoxItem Content="WBFS" />
-                                            <ComboBoxItem Content="GCZ" />
-                                            <ComboBoxItem Content="WIA" />
-                                            <ComboBoxItem Content="CISO" />
-                                            <ComboBoxItem Content="TGC" />
+                                            <ComboBoxItem Content="ISO" ToolTip.Tip="ISO: plain disc image" />
+                                            <ComboBoxItem Content="WBFS" ToolTip.Tip="WBFS: Wii backup file system container" />
+                                            <ComboBoxItem Content="GCZ" ToolTip.Tip="GCZ: Dolphin compressed disc image" />
+                                            <ComboBoxItem Content="WIA" ToolTip.Tip="WIA: Dolphin lossless compressed container" />
+                                            <ComboBoxItem Content="CISO" ToolTip.Tip="CISO: compact ISO" />
+                                            <ComboBoxItem Content="TGC" ToolTip.Tip="TGC: GameCube disc container" />
                                         </ComboBox>
                                     </StackPanel>
                                 </StackPanel>
                             </Expander>
 
                             <TextBlock Grid.Row="3" Text="Select Files to Extract:" Margin="0,5,0,0" FontWeight="Bold" ToolTip.Tip="List of files to extract. Check a file to include it in the batch." />
-                            <Grid Grid.Row="4" Margin="0,5" VerticalAlignment="Stretch">
+                            <Grid Grid.Row="4" Margin="0,5" VerticalAlignment="Stretch" ToolTip.Tip="Extraction file list">
                                 <DataGrid x:Name="ExtractionFilesDataGrid" AutoGenerateColumns="False" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" SelectionMode="Single"
                                           DragDrop.AllowDrop="True" DragDrop.Drop="ExtractionFilesDataGrid_Drop" DragDrop.DragOver="ExtractionFilesDataGrid_DragOver" ToolTip.Tip="Drag and drop RVZ, ZIP, 7Z, or RAR files here">
                                     <DataGrid.Columns>
@@ -222,43 +223,43 @@
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </Grid>
-                            <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10">
+                            <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10" ToolTip.Tip="Selection shortcuts">
                                 <Button Content="Select All" Click="SelectAllExtraction_Click" Theme="{StaticResource ActionButtonStyle}" Margin="5,0" ToolTip.Tip="Select all files for extraction" />
                                 <Button Content="Deselect All" Click="DeselectAllExtraction_Click" Theme="{StaticResource ActionButtonStyle}" Margin="5,0" ToolTip.Tip="Deselect all files from extraction" />
                             </StackPanel>
 
-                            <Button Grid.Row="6" x:Name="StartExtractionButton" Content="Start Extraction" Click="StartExtractionButton_Click" Theme="{StaticResource StartButtonStyle}" HorizontalAlignment="Stretch" ToolTip.Tip="Begin the batch extraction process" />
+                            <Button Grid.Row="6" x:Name="StartExtractionButton" Content="Start Extraction" Click="StartExtractionButton_ClickAsync" Theme="{StaticResource StartButtonStyle}" HorizontalAlignment="Stretch" ToolTip.Tip="Begin the batch extraction process" />
                         </Grid>
                     </Border>
                 </TabItem>
 
                 <TabItem Header="Explorer" ToolTip.Tip="Browse the contents of a disc image without extracting it">
-                    <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="0,0,6,6" Padding="15" VerticalAlignment="Stretch">
-                        <Grid RowDefinitions="Auto,Auto,*,Auto">
+                    <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="0,0,6,6" Padding="15" VerticalAlignment="Stretch" ToolTip.Tip="Disc image explorer controls">
+                        <Grid RowDefinitions="Auto,Auto,*,Auto" ToolTip.Tip="Disc image explorer controls">
 
                             <!-- Image selection -->
-                            <Grid Grid.Row="0" Margin="0,0,0,10" ColumnDefinitions="120,*,Auto">
+                            <Grid Grid.Row="0" Margin="0,0,0,10" ColumnDefinitions="120,*,Auto" ToolTip.Tip="Image selection">
                                 <TextBlock Text="Image File:" VerticalAlignment="Center" ToolTip.Tip="The disc image to browse (ISO, RVZ, WIA, GCZ, CISO, WBFS, TGC or NFS)" />
                                 <TextBox x:Name="ExplorerImageTextBox" Grid.Column="1" Margin="5,0" IsReadOnly="True" ToolTip.Tip="The disc image selected for browsing" />
-                                <StackPanel Grid.Column="2" Orientation="Horizontal">
-                                    <Button x:Name="BrowseExplorerImageButton" Content="Browse..." Click="BrowseExplorerImageButton_Click" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for a disc image to explore" />
-                                    <Button x:Name="OpenExplorerImageButton" Content="Open" Click="OpenExplorerImageButton_Click" Theme="{StaticResource StartButtonStyle}" Margin="5,0,0,0" ToolTip.Tip="Open the selected image and parse its file system" />
-                                    <Button x:Name="RefreshExplorerButton" Content="Refresh" Click="RefreshExplorerButton_Click" Theme="{StaticResource ActionButtonStyle}" Margin="5,0,0,0" IsEnabled="False" ToolTip.Tip="Reload the directory tree from the open image" />
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" ToolTip.Tip="Explorer commands">
+                                    <Button x:Name="BrowseExplorerImageButton" Content="Browse..." Click="BrowseExplorerImageButton_ClickAsync" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for a disc image to explore" />
+                                    <Button x:Name="OpenExplorerImageButton" Content="Open" Click="OpenExplorerImageButton_ClickAsync" Theme="{StaticResource StartButtonStyle}" Margin="5,0,0,0" ToolTip.Tip="Open the selected image and parse its file system" />
+                                    <Button x:Name="RefreshExplorerButton" Content="Refresh" Click="RefreshExplorerButton_ClickAsync" Theme="{StaticResource ActionButtonStyle}" Margin="5,0,0,0" IsEnabled="False" ToolTip.Tip="Reload the directory tree from the open image" />
                                     <Button x:Name="CloseExplorerButton" Content="Close" Click="CloseExplorerButton_Click" Theme="{StaticResource ActionButtonStyle}" Margin="5,0,0,0" IsEnabled="False" ToolTip.Tip="Close the open image" />
                                 </StackPanel>
                             </Grid>
 
                             <!-- Volume summary and partition selector -->
-                            <Grid Grid.Row="1" Margin="0,0,0,10" ColumnDefinitions="*,Auto">
+                            <Grid Grid.Row="1" Margin="0,0,0,10" ColumnDefinitions="*,Auto" ToolTip.Tip="Volume summary and partition selector">
                                 <TextBlock x:Name="ExplorerVolumeText" Text="No image open." TextWrapping="Wrap" VerticalAlignment="Center" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" ToolTip.Tip="Information about the open disc image" />
-                                <StackPanel x:Name="ExplorerPartitionPanel" Grid.Column="1" Orientation="Horizontal" IsVisible="False" Margin="10,0,0,0">
+                                <StackPanel x:Name="ExplorerPartitionPanel" Grid.Column="1" Orientation="Horizontal" IsVisible="False" Margin="10,0,0,0" ToolTip.Tip="Wii partition selection">
                                     <TextBlock Text="Partition:" VerticalAlignment="Center" Margin="0,0,5,0" ToolTip.Tip="The Wii partition currently being browsed" />
-                                    <ComboBox x:Name="ExplorerPartitionComboBox" Width="150" SelectionChanged="ExplorerPartitionComboBox_SelectionChanged" ToolTip.Tip="Select the Wii partition to browse" />
+                                    <ComboBox x:Name="ExplorerPartitionComboBox" Width="150" SelectionChanged="ExplorerPartitionComboBox_SelectionChangedAsync" ToolTip.Tip="Select the Wii partition to browse" />
                                 </StackPanel>
                             </Grid>
 
                             <!-- File tree and entry details -->
-                            <Grid Grid.Row="2">
+                            <Grid Grid.Row="2" ToolTip.Tip="File tree and entry details">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" MinWidth="260" />
                                     <ColumnDefinition Width="340" MinWidth="240" />
@@ -274,7 +275,7 @@
                                         </TreeView.Styles>
                                         <TreeView.ItemTemplate>
                                             <TreeDataTemplate ItemsSource="{Binding Children}">
-                                                <StackPanel Orientation="Horizontal">
+                                                <StackPanel Orientation="Horizontal" ToolTip.Tip="Name of the file or folder in the image">
                                                     <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimaryBrush}" ToolTip.Tip="Name of the file or folder in the image" />
                                                     <TextBlock Text="{Binding Suffix, StringFormat='  ({0})'}" FontSize="11" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" ToolTip.Tip="Entry size or type" />
                                                 </StackPanel>
@@ -283,11 +284,11 @@
                                     </TreeView>
                                 </Border>
 
-                                <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                <StackPanel Grid.Column="1" Margin="10,0,0,0" ToolTip.Tip="Selected entry details and actions">
                                     <TextBox x:Name="ExplorerDetailsTextBox" Text="Select an entry in the tree." IsReadOnly="True" AcceptsReturn="True" BorderThickness="0" Background="Transparent" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" MinHeight="120" ToolTip.Tip="Read-only details of the selected tree entry" />
-                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                        <Button x:Name="CopyOutExplorerButton" Content="Copy Out..." Click="CopyOutExplorerButton_Click" Theme="{StaticResource StartButtonStyle}" IsEnabled="False" ToolTip.Tip="Extract the selected file or folder to disk" />
-                                        <Button x:Name="HashExplorerButton" Content="SHA-256" Click="HashExplorerButton_Click" Theme="{StaticResource ActionButtonStyle}" Margin="8,0,0,0" IsEnabled="False" ToolTip.Tip="Compute the SHA-256 of the selected file" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0" ToolTip.Tip="Entry actions">
+                                        <Button x:Name="CopyOutExplorerButton" Content="Copy Out..." Click="CopyOutExplorerButton_ClickAsync" Theme="{StaticResource StartButtonStyle}" IsEnabled="False" ToolTip.Tip="Extract the selected file or folder to disk" />
+                                        <Button x:Name="HashExplorerButton" Content="SHA-256" Click="HashExplorerButton_ClickAsync" Theme="{StaticResource ActionButtonStyle}" Margin="8,0,0,0" IsEnabled="False" ToolTip.Tip="Compute the SHA-256 of the selected file" />
                                     </StackPanel>
                                     <TextBlock x:Name="ExplorerHashText" FontFamily="Consolas" FontSize="11" Margin="0,8,0,0" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" ToolTip.Tip="SHA-256 hash of the selected file, if computed" />
                                 </StackPanel>
@@ -303,14 +304,15 @@
                           HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                           ResizeBehavior="PreviousAndNext" ResizeDirection="Columns"
                           ShowsPreview="True"
-                          Theme="{StaticResource MainGridSplitterStyle}" />
+                          Theme="{StaticResource MainGridSplitterStyle}"
+                          ToolTip.Tip="Drag to resize the tools and log panels" />
 
             <!-- Log Viewer -->
-            <Border Grid.Column="2" Grid.Row="0" BorderBrush="{StaticResource TerminalBorderBrush}" BorderThickness="2" CornerRadius="4" Background="{StaticResource TerminalBackgroundBrush}">
+            <Border Grid.Column="2" Grid.Row="0" BorderBrush="{StaticResource TerminalBorderBrush}" BorderThickness="2" CornerRadius="4" Background="{StaticResource TerminalBackgroundBrush}" ToolTip.Tip="Application activity log viewer">
                 <Border.Effect>
                     <DropShadowEffect OffsetX="0" OffsetY="0" Color="{StaticResource TerminalGlowColor}" BlurRadius="2" Opacity="0.4" />
                 </Border.Effect>
-                <ScrollViewer x:Name="LogViewerScrollViewer" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Padding="10">
+                <ScrollViewer x:Name="LogViewerScrollViewer" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Padding="10" ToolTip.Tip="Scroll to review application activity">
                     <SelectableTextBlock x:Name="LogViewer"
                                          FontFamily="Consolas"
                                          FontSize="13"
@@ -322,38 +324,38 @@
             </Border>
 
             <!-- Stats Panel -->
-            <Grid Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="1" Margin="0,15,0,0" ColumnDefinitions="*,*,*,*,*">
+            <Grid Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="1" Margin="0,15,0,0" ColumnDefinitions="*,*,*,*,*" ToolTip.Tip="Processing statistics">
 
                 <Border Grid.Column="0" Classes="StatCard" ToolTip.Tip="Total number of files">
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" ToolTip.Tip="Total number of files">
                         <TextBlock Text="TOTAL FILES" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="Bold" HorizontalAlignment="Center" ToolTip.Tip="Total number of files processed" />
                         <TextBlock x:Name="TotalFilesValue" Text="0" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}" ToolTip.Tip="Total number of files processed" />
                     </StackPanel>
                 </Border>
 
                 <Border Grid.Column="1" Classes="StatCard" ToolTip.Tip="Successfully processed files">
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" ToolTip.Tip="Successfully processed files">
                         <TextBlock Text="SUCCESS" FontSize="10" Foreground="{StaticResource SuccessTextBrush}" FontWeight="Bold" HorizontalAlignment="Center" ToolTip.Tip="Number of files successfully processed" />
                         <TextBlock x:Name="SuccessValue" Text="0" FontSize="18" FontWeight="Bold" Foreground="{StaticResource SuccessTextBrush}" HorizontalAlignment="Center" ToolTip.Tip="Number of files successfully processed" />
                     </StackPanel>
                 </Border>
 
                 <Border Grid.Column="2" Classes="StatCard" ToolTip.Tip="Failed files">
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" ToolTip.Tip="Failed files">
                         <TextBlock Text="FAILED" FontSize="10" Foreground="{StaticResource FailedTextBrush}" FontWeight="Bold" HorizontalAlignment="Center" ToolTip.Tip="Number of files that failed processing" />
                         <TextBlock x:Name="FailedValue" Text="0" FontSize="18" FontWeight="Bold" Foreground="{StaticResource FailedTextBrush}" HorizontalAlignment="Center" ToolTip.Tip="Number of files that failed processing" />
                     </StackPanel>
                 </Border>
 
                 <Border Grid.Column="3" Classes="StatCard" ToolTip.Tip="Time elapsed">
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" ToolTip.Tip="Time elapsed">
                         <TextBlock Text="ELAPSED" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="Bold" HorizontalAlignment="Center" ToolTip.Tip="Total elapsed processing time" />
                         <TextBlock x:Name="ProcessingTimeValue" Text="00:00:00" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}" ToolTip.Tip="Total elapsed processing time" />
                     </StackPanel>
                 </Border>
 
                 <Border Grid.Column="4" Classes="StatCard" ToolTip.Tip="Current processing speed">
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" ToolTip.Tip="Current processing speed">
                         <TextBlock Text="SPEED" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="Bold" HorizontalAlignment="Center" ToolTip.Tip="Average processing speed" />
                         <TextBlock x:Name="WriteSpeedValue" Text="0.0 MB/s" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}" ToolTip.Tip="Average processing speed" />
                     </StackPanel>
@@ -361,10 +363,10 @@
             </Grid>
 
             <!-- Progress Area -->
-            <Grid Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="2" Margin="0,15,0,0" ColumnDefinitions="*,Auto">
-                <Grid Grid.Column="0" RowDefinitions="Auto,Auto,Auto">
+            <Grid Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="2" Margin="0,15,0,0" ColumnDefinitions="*,Auto" ToolTip.Tip="Progress and cancellation">
+                <Grid Grid.Column="0" RowDefinitions="Auto,Auto,Auto" ToolTip.Tip="Progress bars">
                     <ProgressBar x:Name="FileProgressBar" Grid.Row="1" Height="20" Margin="0,0,0,10" ToolTip.Tip="Current file conversion/verification progress" />
-                    <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto">
+                    <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" ToolTip.Tip="Overall batch progress">
                         <ProgressBar x:Name="ProgressBar" Grid.Column="1" Height="20" ToolTip.Tip="Overall batch progress (files processed / total files)" VerticalAlignment="Center" />
                     </Grid>
                 </Grid>
@@ -373,7 +375,7 @@
         </Grid>
 
         <!-- Status Bar -->
-        <Border Grid.Row="2" Background="{StaticResource StatusBarBackgroundBrush}" Padding="10,5">
+        <Border Grid.Row="2" Background="{StaticResource StatusBarBackgroundBrush}" Padding="10,5" ToolTip.Tip="Application status bar">
             <TextBlock x:Name="StatusBarText" Text="Ready" Foreground="{StaticResource TextSecondaryBrush}" ToolTip.Tip="Application status" />
         </Border>
 
@@ -382,15 +384,17 @@
                 Grid.Row="0" Grid.RowSpan="3"
                 Background="{StaticResource OverlayBackgroundBrush}"
                 IsVisible="False"
-                ZIndex="100">
+                ZIndex="100"
+                ToolTip.Tip="Operation in progress overlay">
             <Border Background="{StaticResource CardBackgroundBrush}"
                     BorderBrush="{StaticResource PrimaryAccentBrush}"
                     BorderThickness="2"
                     CornerRadius="10"
                     Padding="30"
                     HorizontalAlignment="Center"
-                    VerticalAlignment="Center">
-                <StackPanel>
+                    VerticalAlignment="Center"
+                    ToolTip.Tip="Operation in progress">
+                <StackPanel ToolTip.Tip="Operation in progress">
                     <TextBlock Text="Please wait"
                                FontSize="24"
                                FontWeight="Bold"

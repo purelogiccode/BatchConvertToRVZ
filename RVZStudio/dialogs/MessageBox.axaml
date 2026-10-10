@@ -8,25 +8,29 @@
         CanResize="False"
         ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource WindowBackgroundBrush}">
-    <Grid Margin="20" RowDefinitions="Auto,Auto">
-        <StackPanel Orientation="Horizontal">
+        Background="{StaticResource WindowBackgroundBrush}"
+        ToolTip.Tip="Message dialog">
+    <Grid Margin="20" RowDefinitions="Auto,Auto" ToolTip.Tip="Message dialog">
+        <StackPanel Orientation="Horizontal" ToolTip.Tip="Message content">
             <TextBlock x:Name="IconText"
                        FontSize="28"
                        VerticalAlignment="Top"
                        Margin="0,0,14,0"
-                       IsVisible="False" />
+                       IsVisible="False"
+                       ToolTip.Tip="Message icon" />
             <TextBlock x:Name="MessageText"
                        TextWrapping="Wrap"
                        Foreground="{StaticResource TextPrimaryBrush}"
                        FontSize="13"
                        VerticalAlignment="Center"
-                       MaxWidth="500" />
+                       MaxWidth="500"
+                       ToolTip.Tip="Message text" />
         </StackPanel>
         <StackPanel x:Name="ButtonsPanel"
                     Grid.Row="1"
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
-                    Margin="0,20,0,0" />
+                    Margin="0,20,0,0"
+                    ToolTip.Tip="Dialog buttons" />
     </Grid>
 </Window>

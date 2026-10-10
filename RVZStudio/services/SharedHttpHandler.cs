@@ -24,9 +24,16 @@ public static class SharedHttpHandler
     /// </summary>
     public static void Dispose()
     {
-        if (Handler.IsValueCreated)
+        try
         {
-            Handler.Value.Dispose();
+            if (Handler.IsValueCreated)
+            {
+                Handler.Value.Dispose();
+            }
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Debug(ex, "Error disposing shared HTTP handler");
         }
     }
 }

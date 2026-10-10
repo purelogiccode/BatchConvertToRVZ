@@ -325,4 +325,98 @@ public class RvzSharpServiceTests : IDisposable
             CancellationToken.None));
         return outputFile;
     }
+
+    [Theory]
+    [InlineData("game.iso", "ZSTD")]
+    [InlineData("game.iso", "BZip2")]
+    [InlineData("game.iso", "LZMA2")]
+    public void CanEncodeIsCaseInsensitiveForCompressionMethod(string fileName, string compressionMethod)
+    {
+        var inputFile = Path.Combine(_tempDir, fileName);
+
+        Assert.True(RvzSharpService.CanEncode(inputFile, compressionMethod));
+    }
+
+    [Theory]
+    [InlineData("game.RVZ", true)]
+    [InlineData("game.WIA", true)]
+    [InlineData("game.Rvz", true)]
+    [InlineData("game.ISO", false)]
+    public void CanDecodeIsCaseInsensitiveForExtension(string fileName, bool expected)
+    {
+        var inputFile = Path.Combine(_tempDir, fileName);
+
+        Assert.Equal(expected, RvzSharpService.CanDecode(inputFile));
+    }
+
+    [Fact]
+    public void CanEncodeRejectsNkitGcz()
+    {
+        var inputFile = Path.Combine(_tempDir, "game.nkit.gcz");
+
+        Assert.False(RvzSharpService.CanEncode(inputFile, "zstd"));
+    }
+
+    [Fact]
+    public void CanEncodeRejectsUnknownCompressionMethod()
+    {
+        var inputFile = Path.Combine(_tempDir, "game.iso");
+
+        Assert.False(RvzSharpService.CanEncode(inputFile, "unknown"));
+    }
+
+    [Fact]
+    public void TryDecodeUnsupportedFormatReturnsFalseAndLogs()
+    {
+        var rvzFile = CreateRvzFromSyntheticDisc();
+        var outputFile = Path.Combine(_tempDir, "game.xyz");
+
+        var result = _service.TryDecode(rvzFile, outputFile, "xyz", scrub: false, progress: null,
+            CancellationToken.None);
+
+        Assert.False(result);
+        Assert.Contains(_logMessages, static m => m.Contains("cannot write output format"));
+    }
+
+    [Fact]
+    public void TryDecodeCancellationThrows()
+    {
+        var rvzFile = CreateRvzFromSyntheticDisc();
+        var outputFile = Path.Combine(_tempDir, "cancelled.iso");
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        Assert.ThrowsAny<OperationCanceledException>(() =>
+            _service.TryDecode(rvzFile, outputFile, "iso", scrub: false, progress: null, cts.Token));
+    }
+
+    [Fact]
+    public void TryEncodeCancellationThrowsAndCleansPartialOutput()
+    {
+        var inputFile = Path.Combine(_tempDir, "game.iso");
+        var outputFile = Path.Combine(_tempDir, "cancelled.rvz");
+        File.WriteAllBytes(inputFile, CreateDiscImageWithValidHeader(350_000));
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        Assert.ThrowsAny<OperationCanceledException>(() =>
+            _service.TryEncode(inputFile, outputFile, "zstd", 5, 131072, scrub: false, progress: null, cts.Token));
+        Assert.False(File.Exists(outputFile));
+    }
+
+    [Fact]
+    public void TryEncodeRejectsUnsupportedCompressionMethod()
+    {
+        var inputFile = Path.Combine(_tempDir, "game.iso");
+        var outputFile = Path.Combine(_tempDir, "game.rvz");
+        File.WriteAllBytes(inputFile, CreateDiscImageWithValidHeader(350_000));
+
+        // The service must never silently substitute a different codec for the requested one.
+        var result = _service.TryEncode(inputFile, outputFile, "zlib", 5, 131072, scrub: false, progress: null,
+            CancellationToken.None);
+
+        Assert.False(result);
+        Assert.False(File.Exists(outputFile));
+        Assert.Contains(_logMessages, static m => m.Contains("does not support compression method"));
+    }
 }

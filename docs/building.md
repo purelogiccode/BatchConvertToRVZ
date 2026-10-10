@@ -104,7 +104,7 @@ Supported runtime identifiers: `win-x64`, `win-arm64`, `linux-x64`, `linux-arm64
 
 ## Continuous integration
 
-Two GitHub Actions workflows live in `.github/workflows`:
+Three GitHub Actions workflows live in `.github/workflows`:
 
 ### `ci.yml` — build and test
 
@@ -124,6 +124,26 @@ Actions tab.
    `release_<version>_<rid>.zip` files as artifacts.
 2. A final job downloads all artifacts and creates a GitHub Release with auto-generated release
    notes and the ZIP files attached. The release job only runs for tag builds.
+3. After the release is created, the `docs.yml` workflow is called to publish the documentation.
+
+### `docs.yml` — publish the documentation
+
+Publishes the `docs/` folder to GitHub Pages and mirrors it into the repository wiki. It runs
+manually from the Actions tab, when called by the Release workflow, or (once the `push` trigger
+is uncommented in the workflow) on every change under `docs/`.
+
+Prerequisites, configured once in the repository settings:
+
+| Requirement | Where |
+|-------------|-------|
+| Pages enabled with **Source: GitHub Actions** | Settings → Pages |
+| Wiki enabled and at least one page created (the wiki git repository only exists after that) | Settings → Features → Wikis |
+| `WIKI_TOKEN` secret — a classic PAT with the `repo` scope (recommended; the default `GITHUB_TOKEN` may not be allowed to push to wikis) | Settings → Secrets and variables → Actions |
+
+The Pages job builds the docs with Jekyll (`docs/_config.yml` enables the relative-link and
+README-index plugins) and deploys the generated site. The wiki job copies `docs/*.md` into the
+wiki repository, maps `README.md` to `Home`, rewrites relative links to wiki page names and
+creates a `_Sidebar.md` navigation page on the first run.
 
 ### Cutting a release
 
@@ -137,7 +157,8 @@ Actions tab.
    git push origin v2.5.0
    ```
 
-4. The Release workflow builds and attaches the six ZIP archives.
+4. The Release workflow builds and attaches the six ZIP archives, then publishes the
+   documentation to GitHub Pages and the wiki.
 
 ## Versioning
 

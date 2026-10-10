@@ -157,18 +157,27 @@ public sealed class DiscExplorerSession : IDisposable
     /// <param name="index">The partition index from <see cref="Partitions"/>.</param>
     public void SelectPartition(int index)
     {
-        if (Partitions.Count == 0 || index < 0 || index >= Partitions.Count || index == PartitionIndex)
+        try
         {
-            return;
-        }
+            if (Partitions.Count == 0 || index < 0 || index >= Partitions.Count || index == PartitionIndex)
+            {
+                return;
+            }
 
-        var fileSystem = DiscFileSystem.Open(_blob, Partitions[index]);
-        var previous = _fileSystem;
-        _fileSystem = fileSystem;
-        PartitionIndex = index;
-        VolumeSummary = BuildVolumeSummary();
-        previous.Dispose();
-        _logger.Information("{Message:l}", $"Explorer switched to partition {PartitionName(Partitions[index].Type)}.");
+            var fileSystem = DiscFileSystem.Open(_blob, Partitions[index]);
+            var previous = _fileSystem;
+            _fileSystem = fileSystem;
+            PartitionIndex = index;
+            VolumeSummary = BuildVolumeSummary();
+            previous.Dispose();
+            _logger.Information("{Message:l}",
+                $"Explorer switched to partition {PartitionName(Partitions[index].Type)}.");
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Explorer failed to switch to partition {Index}", index);
+            throw;
+        }
     }
 
     /// <summary>Lists the direct children of a directory (the root when null).</summary>
@@ -176,8 +185,16 @@ public sealed class DiscExplorerSession : IDisposable
     /// <returns>The directory's children (empty for files).</returns>
     public IReadOnlyList<DiscFileInfo> ListChildren(DiscFileInfo? parent)
     {
-        var directory = parent ?? _fileSystem.Root;
-        return directory.Children;
+        try
+        {
+            var directory = parent ?? _fileSystem.Root;
+            return directory.Children;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Explorer failed to list children of {Path}", parent?.Path ?? "/");
+            throw;
+        }
     }
 
     /// <summary>
@@ -189,13 +206,30 @@ public sealed class DiscExplorerSession : IDisposable
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     public void CopyNodeTo(DiscFileInfo node, string destinationPath, CancellationToken cancellationToken)
     {
+        try
+        {
+            CopyNodeToCore(node, destinationPath, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Explorer failed to copy {Path}", node.Path);
+            throw;
+        }
+    }
+
+    private void CopyNodeToCore(DiscFileInfo node, string destinationPath, CancellationToken cancellationToken)
+    {
         if (node.IsDirectory)
         {
             Directory.CreateDirectory(destinationPath);
             foreach (var child in node.Children)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                CopyNodeTo(child, Path.Combine(destinationPath, SanitizeName(child.Name)), cancellationToken);
+                CopyNodeToCore(child, Path.Combine(destinationPath, SanitizeName(child.Name)), cancellationToken);
             }
 
             return;
@@ -222,17 +256,29 @@ public sealed class DiscExplorerSession : IDisposable
     /// <returns>The hash as an uppercase hex string.</returns>
     public string ComputeSha256(DiscFileInfo file, CancellationToken cancellationToken)
     {
-        if (file.IsDirectory)
+        try
         {
-            throw new ArgumentException("Directories cannot be hashed.", nameof(file));
-        }
+            if (file.IsDirectory)
+            {
+                throw new ArgumentException("Directories cannot be hashed.", nameof(file));
+            }
 
-        lock (_readLock)
+            lock (_readLock)
+            {
+                using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+                using var sink = new HashingStream(hash);
+                _fileSystem.CopyFileTo(file, sink, cancellationToken);
+                return Convert.ToHexString(hash.GetHashAndReset());
+            }
+        }
+        catch (OperationCanceledException)
         {
-            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-            using var sink = new HashingStream(hash);
-            _fileSystem.CopyFileTo(file, sink, cancellationToken);
-            return Convert.ToHexString(hash.GetHashAndReset());
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Explorer failed to hash {Path}", file.Path);
+            throw;
         }
     }
 
@@ -315,8 +361,16 @@ public sealed class DiscExplorerSession : IDisposable
         }
 
         _disposed = true;
-        _fileSystem.Dispose();
-        _blob.Dispose();
+
+        try
+        {
+            _fileSystem.Dispose();
+            _blob.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.Debug(ex, "Error disposing explorer session for {ImagePath}", ImagePath);
+        }
     }
 
     /// <summary>Write-only stream that feeds every byte into an <see cref="IncrementalHash"/>.</summary>

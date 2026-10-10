@@ -46,4 +46,14 @@ public class SystemInfo
     /// Gets or sets the number of processors.
     /// </summary>
     public int ProcessorCount { get; set; }
+
+    /// <summary>
+    /// Gets or sets the base directory the application is running from.
+    /// </summary>
+    public string BaseDirectory { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the temporary directory used by the application.
+    /// </summary>
+    public string TempPath { get; set; } = string.Empty;
 }

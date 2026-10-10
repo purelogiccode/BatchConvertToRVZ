@@ -15,18 +15,18 @@ A cross-platform desktop utility for batch converting GameCube and Wii disc imag
 
 ## Documentation
 
-Full documentation lives in the [`doc/`](doc/README.md) folder:
+Full documentation lives in the [`docs/`](docs/README.md) folder:
 
 | Page | Description |
 |------|-------------|
-| [Getting Started](doc/getting-started.md) | Requirements, installation and quick start. |
-| [User Guide](doc/user-guide.md) | Walkthrough of every screen and control. |
-| [Settings Reference](doc/settings-reference.md) | Compression methods, levels, block sizes and options. |
-| [Troubleshooting](doc/troubleshooting.md) | Solutions for common problems. |
-| [FAQ](doc/faq.md) | Frequently asked questions. |
-| [Architecture](doc/architecture.md) | Internal design and data flow. |
-| [Building](doc/building.md) | Build, test, publish and CI/CD. |
-| [Contributing](doc/contributing.md) | Issue reporting and pull request workflow. |
+| [Getting Started](docs/getting-started.md) | Requirements, installation and quick start. |
+| [User Guide](docs/user-guide.md) | Walkthrough of every screen and control. |
+| [Settings Reference](docs/settings-reference.md) | Compression methods, levels, block sizes and options. |
+| [Troubleshooting](docs/troubleshooting.md) | Solutions for common problems. |
+| [FAQ](docs/faq.md) | Frequently asked questions. |
+| [Architecture](docs/architecture.md) | Internal design and data flow. |
+| [Building](docs/building.md) | Build, test, publish and CI/CD. |
+| [Contributing](docs/contributing.md) | Issue reporting and pull request workflow. |
 
 ## Overview
 
@@ -298,7 +298,7 @@ RVZStudio/
 ├── images/                  # UI images (menu icons, logo)
 └── DolphinTool*.exe         # External conversion/verification tool (Windows)
 RVZStudio.Tests/             # Unit tests (xUnit)
-doc/                         # Documentation (see doc/README.md)
+docs/                         # Documentation (see docs/README.md)
 .github/workflows/           # CI and release pipelines
 publish.ps1                  # Multi-platform publish script
 ```
@@ -308,7 +308,7 @@ publish.ps1                  # Multi-platform publish script
 2. Clone the repository
 3. Run `dotnet build` or open in Visual Studio / JetBrains Rider / Visual Studio Code
 
-See the [Building guide](doc/building.md) for full instructions.
+See the [Building guide](docs/building.md) for full instructions.
 
 ### Publishing
 The `publish.ps1` script produces self-contained, single-file builds for every supported platform
@@ -334,7 +334,7 @@ GitHub Actions pipelines live in `.github/workflows/`:
 - **Release** (`release.yml`) publishes all six runtime identifiers and attaches the ZIP archives
   to a GitHub Release when a `v*` tag is pushed.
 
-See the [Building guide](doc/building.md#continuous-integration) for details.
+See the [Building guide](docs/building.md#continuous-integration) for details.
 
 ### Running Tests
 The project includes unit tests covering models and services using xUnit:

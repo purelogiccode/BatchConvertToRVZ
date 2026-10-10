@@ -51,6 +51,8 @@ public class UpdateServiceTests
     [InlineData("release-2.0", "2.0")]
     [InlineData("v1.2.3-rc.2", "1.2.3")]
     [InlineData("V2.1.0-ALPHA", "2.1.0")]
+    [InlineData("  v1.2.3  ", "1.2.3")]
+    [InlineData("\tv1.0.0\n", "1.0.0")]
     public void ParseVersionFromTagHyphenAndSuffixFormats(string tag, string expected)
     {
         var result = UpdateService.ParseVersionFromTag(tag);
@@ -202,6 +204,65 @@ public class UpdateServiceTests
         using var service = new UpdateService("https://api.github.com/test", handler);
 
         await Assert.ThrowsAsync<HttpRequestException>(service.CheckForUpdatesAsync);
+    }
+
+    [Fact]
+    public async Task CheckForUpdatesAsyncSendsRequestToConfiguredUrlWithUserAgent()
+    {
+        using var handler = new CapturingHttpMessageHandler(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""{"tag_name":"v0.0.1","html_url":"","name":"","body":"","prerelease":false,"draft":false}""",
+                MediaTypeHeaderValue.Parse("application/json"))
+        });
+        using var service = new UpdateService("https://api.github.com/repos/test/repo/releases/latest", handler);
+
+        await service.CheckForUpdatesAsync();
+
+        Assert.NotNull(handler.LastRequest);
+        Assert.Equal("https://api.github.com/repos/test/repo/releases/latest",
+            handler.LastRequest!.RequestUri?.ToString());
+        Assert.NotNull(handler.LastRequest.Headers.UserAgent);
+        Assert.Contains(handler.LastRequest.Headers.UserAgent, static product => product.Product?.Name == "RVZStudio");
+    }
+
+    [Fact]
+    public async Task CheckForUpdatesAsyncNotFoundRethrows()
+    {
+        using var handler = new FakeHttpMessageHandler(new HttpResponseMessage(HttpStatusCode.NotFound));
+        using var service = new UpdateService("https://api.github.com/test", handler);
+
+        await Assert.ThrowsAsync<HttpRequestException>(service.CheckForUpdatesAsync);
+    }
+
+    [Fact]
+    public void DisposeCanBeCalledWithoutException()
+    {
+        using var handler = new FakeHttpMessageHandler(new HttpResponseMessage(HttpStatusCode.OK));
+        var service = new UpdateService("https://api.github.com/test", handler);
+
+        var exception = Record.Exception(service.Dispose);
+
+        Assert.Null(exception);
+    }
+
+    private sealed class CapturingHttpMessageHandler : HttpMessageHandler
+    {
+        private readonly HttpResponseMessage _response;
+
+        public CapturingHttpMessageHandler(HttpResponseMessage response)
+        {
+            _response = response;
+        }
+
+        public HttpRequestMessage? LastRequest { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            LastRequest = request;
+            return Task.FromResult(_response);
+        }
     }
 
     private static HttpResponseMessage CreateJsonResponse<T>(T obj)

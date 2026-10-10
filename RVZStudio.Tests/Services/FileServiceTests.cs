@@ -74,26 +74,6 @@ public class FileServiceTests
         Assert.Equal([".rvz"], extensions);
     }
 
-    [Theory]
-    [InlineData("game.iso", true)]
-    [InlineData("game.gcm", true)]
-    [InlineData("game.wbfs", true)]
-    [InlineData("game.gcz", true)]
-    [InlineData("game.wia", true)]
-    [InlineData("game.rvz", true)]
-    [InlineData("game.ciso", true)]
-    [InlineData("game.wbi", true)]
-    [InlineData("game.tgc", true)]
-    [InlineData("game.nfs", true)]
-    [InlineData("game.nkit.iso", false)]
-    [InlineData("game.zip", false)]
-    [InlineData("game.txt", false)]
-    public void IsSupportedExplorerFileReturnsExpectedResult(string fileName, bool expected)
-    {
-        var result = FileService.IsSupportedExplorerFile(fileName);
-        Assert.Equal(expected, result);
-    }
-
     [Fact]
     public void GetExplorerExtensionsReturnsExpectedValues()
     {
@@ -101,13 +81,6 @@ public class FileServiceTests
         Assert.Equal(
             [".iso", ".gcm", ".wbfs", ".gcz", ".wia", ".rvz", ".ciso", ".wbi", ".tgc", ".nfs"],
             extensions);
-    }
-
-    [Fact]
-    public void GetExtractionInputExtensionsReturnsExpectedValues()
-    {
-        var extensions = FileService.GetExtractionInputExtensions();
-        Assert.Equal([".rvz", ".zip", ".7z", ".rar"], extensions);
     }
 
     [Theory]
@@ -127,5 +100,74 @@ public class FileServiceTests
     {
         var result = FileService.GetBaseFileNameWithoutGameExtension(fileName);
         Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("game.ISO", true)]
+    [InlineData("game.GCM", true)]
+    [InlineData("game.WBFS", true)]
+    [InlineData("game.ZIP", true)]
+    [InlineData("game.NKIT.ISO", true)]
+    [InlineData("game.nkit.gcz", true)]
+    [InlineData("game.rvz", false)]
+    public void IsSupportedInputFileIsCaseInsensitive(string fileName, bool expected)
+    {
+        Assert.Equal(expected, FileService.IsSupportedInputFile(fileName));
+    }
+
+    [Fact]
+    public void IsSupportedInputFileHandlesFullPaths()
+    {
+        var path = Path.Combine("some", "nested", "folder", "game.iso");
+
+        Assert.True(FileService.IsSupportedInputFile(path));
+    }
+
+    [Theory]
+    [InlineData("game.RVZ", true)]
+    [InlineData("game.rvz", true)]
+    [InlineData("game.Rvz", true)]
+    [InlineData("game.iso", false)]
+    public void IsRvzFileIsCaseInsensitive(string fileName, bool expected)
+    {
+        Assert.Equal(expected, FileService.IsRvzFile(fileName));
+    }
+
+    [Fact]
+    public void IsRvzFileHandlesFullPaths()
+    {
+        var path = Path.Combine("some", "folder", "game.rvz");
+
+        Assert.True(FileService.IsRvzFile(path));
+    }
+
+    [Theory]
+    [InlineData("game.ZIP", true)]
+    [InlineData("game.RAR", true)]
+    [InlineData("game.7Z", true)]
+    [InlineData("game.ISO", false)]
+    public void IsSupportedExtractionInputFileIsCaseInsensitive(string fileName, bool expected)
+    {
+        Assert.Equal(expected, FileService.IsSupportedExtractionInputFile(fileName));
+    }
+
+    [Fact]
+    public void GetBaseFileNameWithoutGameExtensionHandlesUppercaseCompoundExtension()
+    {
+        Assert.Equal("game", FileService.GetBaseFileNameWithoutGameExtension("game.NKIT.ISO"));
+    }
+
+    [Fact]
+    public void GetBaseFileNameWithoutGameExtensionHandlesFullPaths()
+    {
+        var path = Path.Combine("some", "folder", "game.iso");
+
+        Assert.Equal("game", FileService.GetBaseFileNameWithoutGameExtension(path));
+    }
+
+    [Fact]
+    public void GetBaseFileNameWithoutGameExtensionFallsBackForUnknownExtension()
+    {
+        Assert.Equal("archive", FileService.GetBaseFileNameWithoutGameExtension("archive.rar"));
     }
 }

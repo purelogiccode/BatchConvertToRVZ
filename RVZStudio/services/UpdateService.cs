@@ -137,18 +137,12 @@ public partial class UpdateService : IDisposable
     [GeneratedRegex(@"\d+\.\d+(\.\d+)?(\.\d+)?", RegexOptions.NonBacktracking | RegexOptions.ExplicitCapture)]
     private static partial Regex VersionCoreRegex();
 
+    /// <summary>
+    /// Releases the HTTP client used by this service.
+    /// </summary>
     public void Dispose()
     {
         _httpClient.Dispose();
         GC.SuppressFinalize(this);
-    }
-
-    /// <summary>
-    /// Disposes the shared handler when the application exits.
-    /// Call this method during application shutdown.
-    /// </summary>
-    public static void DisposeSharedHandler()
-    {
-        SharedHttpHandler.Dispose();
     }
 }

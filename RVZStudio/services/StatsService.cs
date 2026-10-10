@@ -23,13 +23,21 @@ public class StatsService : IDisposable
     /// <param name="apiKey">The API key for authentication.</param>
     /// <param name="applicationId">The unique identifier for the application.</param>
     public StatsService(string apiUrl, string apiKey, string applicationId)
+        : this(apiUrl, apiKey, applicationId, SharedHttpHandler.Instance)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance with a custom <see cref="HttpMessageHandler"/> for testing.
+    /// </summary>
+    internal StatsService(string apiUrl, string apiKey, string applicationId, HttpMessageHandler handler)
     {
         _apiUrl = apiUrl;
         _apiKey = apiKey;
         _applicationId = applicationId;
         _applicationVersion = GetApplicationVersion();
 
-        _httpClient = new HttpClient(SharedHttpHandler.Instance, false);
+        _httpClient = new HttpClient(handler, false);
 
         // Use Bearer token for authentication as required by the Stats API
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
@@ -54,28 +62,7 @@ public class StatsService : IDisposable
             if (!response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();
-
-                // Provide specific details for common failures
-                var statusCode = (int)response.StatusCode;
-                throw statusCode switch
-                {
-                    429 => new HttpRequestException(
-                        $"Stats API Rate Limit: This IP has already reported stats for '{_applicationId}' within the rate limit period (usually 1 hour)."),
-                    400 => new HttpRequestException(
-                        $"Stats API Bad Request (400): The request was malformed or missing required fields. Response: {content}"),
-                    401 => new HttpRequestException("Stats API Unauthorized (401): Invalid or missing API key."),
-                    403 => new HttpRequestException(
-                        "Stats API Forbidden (403): API key does not have permission to access this resource."),
-                    404 => new HttpRequestException(
-                        $"Stats API Not Found (404): The requested endpoint '{_apiUrl}' does not exist."),
-                    500 => new HttpRequestException(
-                        $"Stats API Server Error (500): The server encountered an internal error. Response: {content}"),
-                    502 => new HttpRequestException(
-                        "Stats API Bad Gateway (502): The server received an invalid response from an upstream server."),
-                    503 => new HttpRequestException(
-                        $"Stats API Service Unavailable (503): The server is temporarily unavailable. Response: {content}"),
-                    _ => new HttpRequestException($"Stats API failed with status {response.StatusCode}: {content}")
-                };
+                Log.Debug("Failed to send usage stats: {Message}", DescribeFailure(response.StatusCode, content));
             }
         }
         catch (HttpRequestException ex)
@@ -88,6 +75,28 @@ public class StatsService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Builds a human-readable description for a non-success statistics response.
+    /// </summary>
+    /// <param name="statusCode">The HTTP status code returned by the API.</param>
+    /// <param name="content">The response body.</param>
+    /// <returns>A detailed description of the failure.</returns>
+    private string DescribeFailure(System.Net.HttpStatusCode statusCode, string content)
+    {
+        return (int)statusCode switch
+        {
+            429 => $"Stats API Rate Limit: This IP has already reported stats for '{_applicationId}' within the rate limit period (usually 1 hour).",
+            400 => $"Stats API Bad Request (400): The request was malformed or missing required fields. Response: {content}",
+            401 => "Stats API Unauthorized (401): Invalid or missing API key.",
+            403 => "Stats API Forbidden (403): API key does not have permission to access this resource.",
+            404 => $"Stats API Not Found (404): The requested endpoint '{_apiUrl}' does not exist.",
+            500 => $"Stats API Server Error (500): The server encountered an internal error. Response: {content}",
+            502 => "Stats API Bad Gateway (502): The server received an invalid response from an upstream server.",
+            503 => $"Stats API Service Unavailable (503): The server is temporarily unavailable. Response: {content}",
+            _ => $"Stats API failed with status {statusCode}: {content}"
+        };
+    }
+
     private static string GetApplicationVersion()
     {
         var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
@@ -95,18 +104,12 @@ public class StatsService : IDisposable
         return version?.ToString() ?? "Unknown";
     }
 
+    /// <summary>
+    /// Releases the HTTP client used by this service.
+    /// </summary>
     public void Dispose()
     {
         _httpClient.Dispose();
         GC.SuppressFinalize(this);
-    }
-
-    /// <summary>
-    /// Disposes the shared handler when the application exits.
-    /// Call this method during application shutdown.
-    /// </summary>
-    public static void DisposeSharedHandler()
-    {
-        SharedHttpHandler.Dispose();
     }
 }

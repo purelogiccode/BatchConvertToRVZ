@@ -2,6 +2,10 @@ using System.Runtime.InteropServices;
 
 namespace RVZStudio.services;
 
+/// <summary>
+/// Helpers for locating, preparing and safely starting the external helper executables
+/// (DolphinTool and 7za) used as fallbacks by the conversion, verification and extraction services.
+/// </summary>
 internal static class ProcessHelper
 {
     private const uint SemFailcriticalerrors = 0x0001;
@@ -20,16 +24,18 @@ internal static class ProcessHelper
     }
 
     /// <summary>
-    /// Builds a user-friendly message for a missing external executable, hinting at the
-    /// common cause of running the application from a temporary extraction folder that
-    /// gets deleted while the application is running.
+    /// Builds a user-friendly message for a missing helper executable. DolphinTool is an
+    /// optional fallback (the native RVZSharp engine is primary), so this is an expected
+    /// environment condition rather than an application bug; the message also hints at the
+    /// common cause of running from a temporary extraction folder that gets deleted.
     /// </summary>
     internal static string GetMissingExecutableMessage(string exePath)
     {
-        return $"Executable not found: \"{exePath}\". If the application was started from a temporary "
-               + "extraction folder (for example a WinRAR or other archiver temp folder), the file may have "
-               + "been deleted while the application was running. Extract the application to a permanent "
-               + "folder and run it from there.";
+        return $"The helper executable \"{Path.GetFileName(exePath)}\" was not found, so the fallback "
+               + "engine is unavailable. The native RVZSharp engine handles supported files on its own; "
+               + "place the helper next to the application to enable the fallback. If the application was "
+               + "started from a temporary extraction folder (for example a WinRAR or other archiver temp "
+               + "folder), the file may have been deleted while the application was running.";
     }
 
     /// <summary>
@@ -49,10 +55,25 @@ internal static class ProcessHelper
         {
             _ = SetProcessErrorMode(SemFailcriticalerrors | SemNogpfaulterrorbox | SemNoopenfileerrorbox);
         }
-        catch
+        catch (Exception ex)
         {
-            // SetProcessErrorMode may not be available on all Windows versions
+            // SetProcessErrorMode may not be available on all Windows versions.
+            Serilog.Log.Debug(ex, "Failed to suppress child process error dialogs");
         }
+    }
+
+    /// <summary>
+    /// Gets the path of the bundled 7za executable for the current architecture.
+    /// Windows releases ship <c>7za.exe</c>; Linux/macOS builds use extension-less binaries.
+    /// </summary>
+    /// <returns>The full path of the 7za executable next to the application.</returns>
+    internal static string Get7ZipExecutablePath()
+    {
+        var architecture = RuntimeInformation.ProcessArchitecture;
+        var suffix = architecture == Architecture.Arm64 ? "_arm64" : string.Empty;
+        var extension = OperatingSystem.IsWindows() ? ".exe" : string.Empty;
+
+        return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"7za{suffix}{extension}");
     }
 
     /// <summary>
@@ -79,9 +100,10 @@ internal static class ProcessHelper
                 File.SetUnixFileMode(exePath, mode | executeBits);
             }
         }
-        catch
+        catch (Exception ex)
         {
             // Ignore permission errors; starting the process will report a clearer error.
+            Serilog.Log.Debug(ex, "Failed to set execute permissions on {ExePath}", exePath);
         }
     }
 }

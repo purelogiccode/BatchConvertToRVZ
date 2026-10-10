@@ -11,6 +11,7 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using RVZStudio.dialogs;
+using RVZStudio.Models;
 using RVZStudio.services;
 using Serilog;
 using IDisposable = System.IDisposable;
@@ -35,7 +36,6 @@ public partial class MainWindow : Window, IDisposable
     private readonly ConversionService _conversionService;
     private readonly VerificationService _verificationService;
     private readonly ExtractionService _extractionService;
-    private readonly FileService _fileService;
     private readonly ScreenshotService _screenshotService;
     private readonly DiscExplorerService _discExplorerService;
     private DiscExplorerSession? _explorerSession;
@@ -81,14 +81,6 @@ public partial class MainWindow : Window, IDisposable
     private bool _moveSuccessFiles;
 
     // Current operation type for proper cancellation messaging
-    private enum OperationType
-    {
-        None,
-        Conversion,
-        Verification,
-        Extraction
-    }
-
     private OperationType _currentOperation = OperationType.None;
 
     // File lists for UI
@@ -167,11 +159,10 @@ public partial class MainWindow : Window, IDisposable
         _updateService = new UpdateService(GitHubApiUrl);
 
         // Initialize service classes with Serilog ILogger (Warning+ auto-forwards to BugReport API)
-        _fileService = new FileService();
         var rvzSharpService = new RvzSharpService(Log.Logger);
-        _conversionService = new ConversionService(Log.Logger, _fileService, rvzSharpService);
+        _conversionService = new ConversionService(Log.Logger, rvzSharpService);
         _verificationService = new VerificationService(Log.Logger, rvzSharpService);
-        _extractionService = new ExtractionService(Log.Logger, _fileService, rvzSharpService);
+        _extractionService = new ExtractionService(Log.Logger, rvzSharpService);
         _screenshotService = new ScreenshotService(Log.Logger);
         _discExplorerService = new DiscExplorerService(Log.Logger);
 
@@ -193,7 +184,7 @@ public partial class MainWindow : Window, IDisposable
 
         ResetOperationStats();
         InitializeProcessingTimeTimer();
-        Loaded += MainWindow_Loaded;
+        Loaded += MainWindow_LoadedAsync;
         Closed += MainWindow_Closed;
     }
 
@@ -238,7 +229,13 @@ public partial class MainWindow : Window, IDisposable
         LogMessage("");
     }
 
-    private static string GetDolphinToolExecutableName()
+    /// <summary>
+    /// Gets the DolphinTool executable file name for the current process architecture
+    /// (with the "_arm64" suffix on ARM64 and the ".exe" extension on Windows).
+    /// </summary>
+    /// <returns>The architecture-specific DolphinTool file name.</returns>
+    /// <exception cref="PlatformNotSupportedException">The architecture is neither x64 nor ARM64.</exception>
+    internal static string GetDolphinToolExecutableName()
     {
         var architecture = RuntimeInformation.ProcessArchitecture;
         var suffix = architecture switch
@@ -253,7 +250,7 @@ public partial class MainWindow : Window, IDisposable
         return $"DolphinTool{suffix}{extension}";
     }
 
-    private async void MainWindow_Loaded(object? sender, RoutedEventArgs e)
+    private async void MainWindow_LoadedAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -268,8 +265,15 @@ public partial class MainWindow : Window, IDisposable
 
     private void MainWindow_Closed(object? sender, EventArgs e)
     {
-        UiLogSink.MessageLogged -= EnqueueLogLine;
-        _ = Task.Run(Dispose);
+        try
+        {
+            UiLogSink.MessageLogged -= EnqueueLogLine;
+            _ = Task.Run(Dispose);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method MainWindow_Closed");
+        }
     }
 
     private void Window_Closing(object? sender, WindowClosingEventArgs e)
@@ -306,8 +310,12 @@ public partial class MainWindow : Window, IDisposable
                     _cts.Cancel();
                 }
 
-                // Wait up to 5 seconds for the running task to finish
-                await Task.WhenAny(_runningTask!, Task.Delay(5000));
+                // Give the running operation time to stop and clean up its partial output.
+                var completed = await Task.WhenAny(_runningTask!, Task.Delay(10000)) == _runningTask;
+                if (!completed)
+                {
+                    Log.Information("Operation did not stop within 10 seconds; forcing application shutdown.");
+                }
             }
             catch
             {
@@ -337,13 +345,13 @@ public partial class MainWindow : Window, IDisposable
                     }
                 });
 
-                // Double-fallback: if Shutdown hasn't worked within 3 seconds, force-exit
-                _ = Task.Delay(3000).ContinueWith(static _ => Environment.Exit(0));
+                // Double-fallback: if Shutdown hasn't worked within 5 seconds, force-exit
+                _ = Task.Delay(5000).ContinueWith(static _ => Environment.Exit(0));
             }
         });
     }
 
-    private async void Window_KeyDown(object? sender, KeyEventArgs e)
+    private async void Window_KeyDownAsync(object? sender, KeyEventArgs e)
     {
         try
         {
@@ -351,18 +359,11 @@ public partial class MainWindow : Window, IDisposable
 
             e.Handled = true;
 
-            try
-            {
-                await _screenshotService.CaptureWindowAsync(this);
-            }
-            catch (Exception ex)
-            {
-                await ReportBugAsync("Error during Window_KeyDown screenshot capture", ex);
-            }
+            await _screenshotService.CaptureWindowAsync(this);
         }
         catch (Exception ex)
         {
-            await ReportBugAsync("Error during Window_KeyDown screenshot capture", ex);
+            await ReportBugAsync("Error during Window_KeyDownAsync screenshot capture", ex);
         }
     }
 
@@ -487,7 +488,7 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
-    private async void BrowseInputButton_Click(object? sender, RoutedEventArgs e)
+    private async void BrowseInputButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -501,7 +502,7 @@ public partial class MainWindow : Window, IDisposable
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Error in method BrowseInputButton_Click");
+            Log.Error(ex, "Error in method BrowseInputButton_ClickAsync");
         }
     }
 
@@ -560,7 +561,7 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
-    private async void BrowseOutputButton_Click(object? sender, RoutedEventArgs e)
+    private async void BrowseOutputButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -572,11 +573,11 @@ public partial class MainWindow : Window, IDisposable
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Error in method BrowseOutputButton_Click");
+            Log.Error(ex, "Error in method BrowseOutputButton_ClickAsync");
         }
     }
 
-    private async void StartConversionButton_Click(object? sender, RoutedEventArgs e)
+    private async void StartConversionButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -728,31 +729,38 @@ public partial class MainWindow : Window, IDisposable
         }
         catch (Exception ex)
         {
-            await ReportBugAsync("Error during StartConversionButton_Click", ex);
+            await ReportBugAsync("Error during StartConversionButton_ClickAsync", ex);
         }
     }
 
     private void CancelButton_Click(object? sender, RoutedEventArgs e)
     {
-        lock (_ctsLock)
+        try
         {
-            _cts.Cancel();
+            lock (_ctsLock)
+            {
+                _cts.Cancel();
+            }
+
+            LogMessage("Cancellation requested. Waiting for current operation(s) to complete...");
+
+            // Show appropriate overlay text based on current operation type
+            var operationName = _currentOperation switch
+            {
+                OperationType.Conversion => "conversion",
+                OperationType.Verification => "verification",
+                OperationType.Extraction => "extraction",
+                _ => "operation"
+            };
+
+            ExtractionOverlayText.Text =
+                $"Cancellation requested.\nPlease wait for the current {operationName} to complete...";
+            ExtractionOverlay.IsVisible = true;
         }
-
-        LogMessage("Cancellation requested. Waiting for current operation(s) to complete...");
-
-        // Show appropriate overlay text based on current operation type
-        var operationName = _currentOperation switch
+        catch (Exception ex)
         {
-            OperationType.Conversion => "conversion",
-            OperationType.Verification => "verification",
-            OperationType.Extraction => "extraction",
-            _ => "operation"
-        };
-
-        ExtractionOverlayText.Text =
-            $"Cancellation requested.\nPlease wait for the current {operationName} to complete...";
-        ExtractionOverlay.IsVisible = true;
+            Log.Error(ex, "Error in method CancelButton_Click");
+        }
     }
 
     private async Task SetControlsStateAsync(bool enabled)
@@ -836,7 +844,7 @@ public partial class MainWindow : Window, IDisposable
     /// Validates a folder path for basic correctness and accessibility.
     /// Returns an error message if validation fails, or null if validation passes.
     /// </summary>
-    private static string? ValidateFolder(string? folderPath, string label, bool mustExist)
+    internal static string? ValidateFolder(string? folderPath, string label, bool mustExist)
     {
         if (string.IsNullOrWhiteSpace(folderPath))
             return $"Please select the {label}.";
@@ -884,7 +892,7 @@ public partial class MainWindow : Window, IDisposable
     /// <summary>
     /// Validates that input and output folders are not the same directory.
     /// </summary>
-    private static bool AreSameFolder(string? path1, string? path2)
+    internal static bool AreSameFolder(string? path1, string? path2)
     {
         try
         {
@@ -900,7 +908,13 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
-    private static bool IsSubdirectory(string? parent, string? child)
+    /// <summary>
+    /// Determines whether one folder path is nested inside another.
+    /// </summary>
+    /// <param name="parent">The potential parent folder.</param>
+    /// <param name="child">The potential child folder.</param>
+    /// <returns>true when <paramref name="child"/> is below <paramref name="parent"/>; otherwise, false.</returns>
+    internal static bool IsSubdirectory(string? parent, string? child)
     {
         try
         {
@@ -1066,7 +1080,14 @@ public partial class MainWindow : Window, IDisposable
 
     private void ExitMenuItem_Click(object? sender, RoutedEventArgs e)
     {
-        Close();
+        try
+        {
+            Close();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method ExitMenuItem_Click");
+        }
     }
 
     private void AboutMenuItem_Click(object? sender, RoutedEventArgs e)
@@ -1093,7 +1114,7 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
-    private async void CheckForUpdatesMenuItem_Click(object? sender, RoutedEventArgs e)
+    private async void CheckForUpdatesMenuItem_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -1141,7 +1162,11 @@ public partial class MainWindow : Window, IDisposable
         }
         catch (HttpRequestException ex)
         {
-            var errorMessage = $"Failed to check for updates: network error ({ex.Message})";
+            // HTTP status failures (rate limit, 404, 5xx) and network errors are external
+            // service conditions, not application bugs, so they never create a bug report.
+            var errorMessage = ex.StatusCode is null
+                ? $"Failed to check for updates: network error ({ex.Message})"
+                : $"Failed to check for updates: server returned {(int)ex.StatusCode} ({ex.StatusCode}).";
             LogMessage(errorMessage);
             if (isManualCheck)
             {
@@ -1230,50 +1255,61 @@ public partial class MainWindow : Window, IDisposable
 
         _disposed = true;
 
-        // Signal shutdown to ensure log processor exits quickly
-        _isShuttingDown = true;
-
-        // Complete the log channel to signal the log processor to exit
-        _logChannel.Writer.TryComplete();
-
-        // Wait for the log processor to finish with a reasonable timeout
-        if (_logProcessorTask is { IsCompleted: false })
+        try
         {
-            try
-            {
-                // Use a longer timeout to ensure all pending logs are processed
-                // but don't block indefinitely
-                _logProcessorTask.Wait(TimeSpan.FromSeconds(5));
-            }
-            catch (AggregateException ex) when
-                (ex.InnerException is OperationCanceledException or TaskCanceledException)
-            {
-                // Expected during shutdown
-            }
-            catch
-            {
-                // Ignore any other exceptions during shutdown
-            }
-        }
+            // Signal shutdown to ensure log processor exits quickly
+            _isShuttingDown = true;
 
-        lock (_ctsLock)
-        {
-            using (_cts)
+            // Complete the log channel to signal the log processor to exit
+            _logChannel.Writer.TryComplete();
+
+            // Wait for the log processor to finish with a reasonable timeout
+            if (_logProcessorTask is { IsCompleted: false })
             {
-                if (!_cts.IsCancellationRequested)
+                try
                 {
-                    _cts.Cancel();
+                    // Use a longer timeout to ensure all pending logs are processed
+                    // but don't block indefinitely
+                    _logProcessorTask.Wait(TimeSpan.FromSeconds(5));
+                }
+                catch (AggregateException ex) when
+                    (ex.InnerException is OperationCanceledException or TaskCanceledException)
+                {
+                    // Expected during shutdown
+                }
+                catch (Exception ex)
+                {
+                    // Ignore any other exceptions during shutdown, but keep a trace
+                    Log.Debug(ex, "Error waiting for the log processor to stop");
                 }
             }
-        }
 
-        _updateService.Dispose();
-        _explorerSession?.Dispose();
-        _operationTimer.Stop();
-        GC.SuppressFinalize(this);
+            lock (_ctsLock)
+            {
+                using (_cts)
+                {
+                    if (!_cts.IsCancellationRequested)
+                    {
+                        _cts.Cancel();
+                    }
+                }
+            }
+
+            _updateService.Dispose();
+            _explorerSession?.Dispose();
+            _operationTimer.Stop();
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "Error during MainWindow disposal");
+        }
+        finally
+        {
+            GC.SuppressFinalize(this);
+        }
     }
 
-    private async void BrowseVerifyFolderButton_Click(object? sender, RoutedEventArgs e)
+    private async void BrowseVerifyFolderButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -1287,16 +1323,23 @@ public partial class MainWindow : Window, IDisposable
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Error in method BrowseVerifyFolderButton_Click");
+            Log.Error(ex, "Error in method BrowseVerifyFolderButton_ClickAsync");
         }
     }
 
     private void IncludeSubfoldersVerify_Changed(object? sender, RoutedEventArgs e)
     {
-        var verifyFolder = VerifyFolderTextBox.Text;
-        if (!string.IsNullOrEmpty(verifyFolder) && Directory.Exists(verifyFolder))
+        try
         {
-            PopulateVerificationFilesList(verifyFolder);
+            var verifyFolder = VerifyFolderTextBox.Text;
+            if (!string.IsNullOrEmpty(verifyFolder) && Directory.Exists(verifyFolder))
+            {
+                PopulateVerificationFilesList(verifyFolder);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method IncludeSubfoldersVerify_Changed");
         }
     }
 
@@ -1361,39 +1404,66 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
+    /// <summary>
+    /// Sets the <see cref="Models.FileItem.IsSelected"/> flag of every item in a file list.
+    /// </summary>
+    private static void SetAllSelected(IEnumerable<Models.FileItem> files, bool isSelected)
+    {
+        foreach (var file in files)
+        {
+            file.IsSelected = isSelected;
+        }
+    }
+
     private void SelectAllConversion_Click(object? sender, RoutedEventArgs e)
     {
-        foreach (var f in _conversionFiles)
+        try
         {
-            f.IsSelected = true;
+            SetAllSelected(_conversionFiles, true);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method SelectAllConversion_Click");
         }
     }
 
     private void DeselectAllConversion_Click(object? sender, RoutedEventArgs e)
     {
-        foreach (var f in _conversionFiles)
+        try
         {
-            f.IsSelected = false;
+            SetAllSelected(_conversionFiles, false);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method DeselectAllConversion_Click");
         }
     }
 
     private void SelectAllVerification_Click(object? sender, RoutedEventArgs e)
     {
-        foreach (var f in _verificationFiles)
+        try
         {
-            f.IsSelected = true;
+            SetAllSelected(_verificationFiles, true);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method SelectAllVerification_Click");
         }
     }
 
     private void DeselectAllVerification_Click(object? sender, RoutedEventArgs e)
     {
-        foreach (var f in _verificationFiles)
+        try
         {
-            f.IsSelected = false;
+            SetAllSelected(_verificationFiles, false);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method DeselectAllVerification_Click");
         }
     }
 
-    private async void StartVerifyButton_Click(object? sender, RoutedEventArgs e)
+    private async void StartVerifyButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -1510,7 +1580,7 @@ public partial class MainWindow : Window, IDisposable
         }
         catch (Exception ex)
         {
-            await ReportBugAsync("Error during StartVerifyButton_Click", ex);
+            await ReportBugAsync("Error during StartVerifyButton_ClickAsync", ex);
         }
     }
 
@@ -1801,9 +1871,16 @@ public partial class MainWindow : Window, IDisposable
             failureCount > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
     }
 
-    private static string GetPastTense(string verb)
+    /// <summary>
+    /// Converts a verb to its simple past tense for the operation summary messages
+    /// (for example "convert" becomes "converted").
+    /// </summary>
+    /// <param name="verb">The verb to convert.</param>
+    /// <returns>The past-tense form of the verb.</returns>
+    internal static string GetPastTense(string verb)
     {
         verb = verb.ToLowerInvariant();
+
         if (verb.EndsWith('y') && verb.Length > 1)
         {
             // Check if the character before 'y' is a consonant (not a vowel)
@@ -1814,7 +1891,32 @@ public partial class MainWindow : Window, IDisposable
             }
         }
 
-        return verb.EndsWith('e') ? verb + "d" : verb + "ed";
+        if (verb.EndsWith('e'))
+        {
+            return verb + "d";
+        }
+
+        // Double the final consonant for consonant-vowel-consonant verbs (scan -> scanned).
+        if (verb.Length >= 3
+            && IsConsonant(verb[^1])
+            && IsVowel(verb[^2])
+            && IsConsonant(verb[^3])
+            && verb[^1] is not 'w' and not 'x' and not 'y')
+        {
+            return verb + verb[^1] + "ed";
+        }
+
+        return verb + "ed";
+    }
+
+    private static bool IsVowel(char value)
+    {
+        return value is 'a' or 'e' or 'i' or 'o' or 'u';
+    }
+
+    private static bool IsConsonant(char value)
+    {
+        return char.IsLetter(value) && !IsVowel(value);
     }
 
     /// <summary>
@@ -1823,33 +1925,40 @@ public partial class MainWindow : Window, IDisposable
     /// </summary>
     private void CompressionMethodComboBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (CompressionMethodComboBox?.SelectedItem is not ComboBoxItem selectedItem) return;
-        if (CompressionLevelSlider == null) return;
-
-        var method = selectedItem.Tag?.ToString() ?? "zstd";
-        _rvzCompressionMethod = method;
-
-        // Update compression level range based on selected method
-        if (CompressionLevelRanges.TryGetValue(method, out var range))
+        try
         {
-            CompressionLevelSlider.Minimum = range.Min;
-            CompressionLevelSlider.Maximum = range.Max;
+            if (CompressionMethodComboBox?.SelectedItem is not ComboBoxItem selectedItem) return;
+            if (CompressionLevelSlider == null) return;
 
-            // Adjust current value if it's outside the new range
-            if (CompressionLevelSlider.Value < range.Min)
+            var method = selectedItem.Tag?.ToString() ?? "zstd";
+            _rvzCompressionMethod = method;
+
+            // Update compression level range based on selected method
+            if (CompressionLevelRanges.TryGetValue(method, out var range))
             {
-                CompressionLevelSlider.Value = range.Min;
-                _rvzCompressionLevel = range.Min;
+                CompressionLevelSlider.Minimum = range.Min;
+                CompressionLevelSlider.Maximum = range.Max;
+
+                // Adjust current value if it's outside the new range
+                if (CompressionLevelSlider.Value < range.Min)
+                {
+                    CompressionLevelSlider.Value = range.Min;
+                    _rvzCompressionLevel = range.Min;
+                }
+                else if (CompressionLevelSlider.Value > range.Max)
+                {
+                    CompressionLevelSlider.Value = range.Max;
+                    _rvzCompressionLevel = range.Max;
+                }
             }
-            else if (CompressionLevelSlider.Value > range.Max)
-            {
-                CompressionLevelSlider.Value = range.Max;
-                _rvzCompressionLevel = range.Max;
-            }
+
+            LogMessage(
+                $"Compression method changed to: {method} (level range: {CompressionLevelSlider.Minimum}-{CompressionLevelSlider.Maximum})");
         }
-
-        LogMessage(
-            $"Compression method changed to: {method} (level range: {CompressionLevelSlider.Minimum}-{CompressionLevelSlider.Maximum})");
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method CompressionMethodComboBox_SelectionChanged");
+        }
     }
 
     /// <summary>
@@ -1858,33 +1967,40 @@ public partial class MainWindow : Window, IDisposable
     /// </summary>
     private void CompressionLevelSlider_ValueChanged(object? sender, Avalonia.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     {
-        if (CompressionLevelValue == null) return;
-
-        var level = (int)e.NewValue;
-
-        // Validate level is within allowed range for the selected compression method
-        if (CompressionMethodComboBox?.SelectedItem is ComboBoxItem selectedItem)
+        try
         {
-            var method = selectedItem.Tag?.ToString() ?? "zstd";
+            if (CompressionLevelValue == null) return;
 
-            if (CompressionLevelRanges.TryGetValue(method, out var range))
+            var level = (int)e.NewValue;
+
+            // Validate level is within allowed range for the selected compression method
+            if (CompressionMethodComboBox?.SelectedItem is ComboBoxItem selectedItem)
             {
-                // Ensure level is within valid range
-                if (level < range.Min)
+                var method = selectedItem.Tag?.ToString() ?? "zstd";
+
+                if (CompressionLevelRanges.TryGetValue(method, out var range))
                 {
-                    level = range.Min;
-                    CompressionLevelSlider.Value = level;
-                }
-                else if (level > range.Max)
-                {
-                    level = range.Max;
-                    CompressionLevelSlider.Value = level;
+                    // Ensure level is within valid range
+                    if (level < range.Min)
+                    {
+                        level = range.Min;
+                        CompressionLevelSlider.Value = level;
+                    }
+                    else if (level > range.Max)
+                    {
+                        level = range.Max;
+                        CompressionLevelSlider.Value = level;
+                    }
                 }
             }
-        }
 
-        _rvzCompressionLevel = level;
-        CompressionLevelValue.Text = level.ToString(CultureInfo.InvariantCulture);
+            _rvzCompressionLevel = level;
+            CompressionLevelValue.Text = level.ToString(CultureInfo.InvariantCulture);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method CompressionLevelSlider_ValueChanged");
+        }
     }
 
     /// <summary>
@@ -1912,7 +2028,7 @@ public partial class MainWindow : Window, IDisposable
 
     #region Extraction Tab Event Handlers
 
-    private async void BrowseExtractInputButton_Click(object? sender, RoutedEventArgs e)
+    private async void BrowseExtractInputButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -1926,7 +2042,7 @@ public partial class MainWindow : Window, IDisposable
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Error in method BrowseExtractInputButton_Click");
+            Log.Error(ex, "Error in method BrowseExtractInputButton_ClickAsync");
         }
     }
 
@@ -1968,7 +2084,7 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
-    private async void BrowseExtractOutputButton_Click(object? sender, RoutedEventArgs e)
+    private async void BrowseExtractOutputButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -1980,27 +2096,35 @@ public partial class MainWindow : Window, IDisposable
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Error in method BrowseExtractOutputButton_Click");
+            Log.Error(ex, "Error in method BrowseExtractOutputButton_ClickAsync");
         }
     }
 
     private void SelectAllExtraction_Click(object? sender, RoutedEventArgs e)
     {
-        foreach (var f in _extractionFiles)
+        try
         {
-            f.IsSelected = true;
+            SetAllSelected(_extractionFiles, true);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method SelectAllExtraction_Click");
         }
     }
 
     private void DeselectAllExtraction_Click(object? sender, RoutedEventArgs e)
     {
-        foreach (var f in _extractionFiles)
+        try
         {
-            f.IsSelected = false;
+            SetAllSelected(_extractionFiles, false);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method DeselectAllExtraction_Click");
         }
     }
 
-    private async void StartExtractionButton_Click(object? sender, RoutedEventArgs e)
+    private async void StartExtractionButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -2146,7 +2270,7 @@ public partial class MainWindow : Window, IDisposable
         }
         catch (Exception ex)
         {
-            await ReportBugAsync("Error during StartExtractionButton_Click", ex);
+            await ReportBugAsync("Error during StartExtractionButton_ClickAsync", ex);
         }
     }
 
@@ -2247,46 +2371,88 @@ public partial class MainWindow : Window, IDisposable
 
     private void ConversionFilesDataGrid_DragOver(object? sender, DragEventArgs e)
     {
-        e.DragEffects = e.DataTransfer.Contains(DataFormat.File) ? DragDropEffects.Copy : DragDropEffects.None;
-        e.Handled = true;
+        try
+        {
+            e.DragEffects = e.DataTransfer.Contains(DataFormat.File) ? DragDropEffects.Copy : DragDropEffects.None;
+            e.Handled = true;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method ConversionFilesDataGrid_DragOver");
+        }
     }
 
     private void ConversionFilesDataGrid_Drop(object? sender, DragEventArgs e)
     {
-        var files = GetDroppedFilePaths(e);
-        if (files.Length > 0)
+        try
         {
-            HandleDroppedFiles(files, "conversion");
+            var files = GetDroppedFilePaths(e);
+            if (files.Length > 0)
+            {
+                HandleDroppedFiles(files, "conversion");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method ConversionFilesDataGrid_Drop");
         }
     }
 
     private void VerificationFilesDataGrid_DragOver(object? sender, DragEventArgs e)
     {
-        e.DragEffects = e.DataTransfer.Contains(DataFormat.File) ? DragDropEffects.Copy : DragDropEffects.None;
-        e.Handled = true;
+        try
+        {
+            e.DragEffects = e.DataTransfer.Contains(DataFormat.File) ? DragDropEffects.Copy : DragDropEffects.None;
+            e.Handled = true;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method VerificationFilesDataGrid_DragOver");
+        }
     }
 
     private void VerificationFilesDataGrid_Drop(object? sender, DragEventArgs e)
     {
-        var files = GetDroppedFilePaths(e);
-        if (files.Length > 0)
+        try
         {
-            HandleDroppedFiles(files, "verification");
+            var files = GetDroppedFilePaths(e);
+            if (files.Length > 0)
+            {
+                HandleDroppedFiles(files, "verification");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method VerificationFilesDataGrid_Drop");
         }
     }
 
     private void ExtractionFilesDataGrid_DragOver(object? sender, DragEventArgs e)
     {
-        e.DragEffects = e.DataTransfer.Contains(DataFormat.File) ? DragDropEffects.Copy : DragDropEffects.None;
-        e.Handled = true;
+        try
+        {
+            e.DragEffects = e.DataTransfer.Contains(DataFormat.File) ? DragDropEffects.Copy : DragDropEffects.None;
+            e.Handled = true;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method ExtractionFilesDataGrid_DragOver");
+        }
     }
 
     private void ExtractionFilesDataGrid_Drop(object? sender, DragEventArgs e)
     {
-        var files = GetDroppedFilePaths(e);
-        if (files.Length > 0)
+        try
         {
-            HandleDroppedFiles(files, "extraction");
+            var files = GetDroppedFilePaths(e);
+            if (files.Length > 0)
+            {
+                HandleDroppedFiles(files, "extraction");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method ExtractionFilesDataGrid_Drop");
         }
     }
 
@@ -2351,6 +2517,50 @@ public partial class MainWindow : Window, IDisposable
     }
 
     /// <summary>
+    /// Finds the deepest directory that contains every given file, or null when the files live
+    /// in unrelated locations (for example on different drives or at the filesystem root).
+    /// </summary>
+    /// <param name="files">The full paths of the dropped files.</param>
+    /// <returns>The common directory, or null when there is none.</returns>
+    internal static string? GetCommonDirectory(IReadOnlyList<string> files)
+    {
+        if (files.Count == 0)
+        {
+            return null;
+        }
+
+        var commonDirectory = Path.GetDirectoryName(files[0]);
+        for (var i = 1; i < files.Count && !string.IsNullOrEmpty(commonDirectory); i++)
+        {
+            var directory = Path.GetDirectoryName(files[i]) ?? string.Empty;
+            while (!string.IsNullOrEmpty(commonDirectory) && !IsSameOrChildDirectory(directory, commonDirectory))
+            {
+                commonDirectory = Path.GetDirectoryName(commonDirectory);
+            }
+        }
+
+        return string.IsNullOrEmpty(commonDirectory) ? null : commonDirectory;
+    }
+
+    /// <summary>
+    /// Determines whether a directory is the same as, or nested inside, another directory.
+    /// </summary>
+    /// <param name="directory">The directory to test.</param>
+    /// <param name="parent">The potential parent directory.</param>
+    /// <returns>true when the directory is the parent or below it; otherwise, false.</returns>
+    private static bool IsSameOrChildDirectory(string directory, string parent)
+    {
+        if (string.Equals(directory, parent, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var parentPrefix = parent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                           + Path.DirectorySeparatorChar;
+        return directory.StartsWith(parentPrefix, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// Adds individual files to the appropriate file list based on the target.
     /// </summary>
     /// <param name="files">The list of file paths to add.</param>
@@ -2388,20 +2598,7 @@ public partial class MainWindow : Window, IDisposable
             if (fileList == null) return;
 
             // Find common parent directory for the text box display
-            string? commonDirectory = null;
-            if (fileArray.Length > 0)
-            {
-                commonDirectory = Path.GetDirectoryName(fileArray[0]);
-                for (var i = 1; i < fileArray.Length && !string.IsNullOrEmpty(commonDirectory); i++)
-                {
-                    var dir = Path.GetDirectoryName(fileArray[i]);
-                    while (!string.IsNullOrEmpty(dir) && !string.IsNullOrEmpty(commonDirectory) &&
-                           !fileArray[i].StartsWith(commonDirectory, StringComparison.OrdinalIgnoreCase))
-                    {
-                        commonDirectory = Path.GetDirectoryName(commonDirectory);
-                    }
-                }
-            }
+            var commonDirectory = GetCommonDirectory(fileArray);
 
             // Update the text box with the common directory or indicate multiple locations
             var textBox = target switch
@@ -2473,7 +2670,7 @@ public partial class MainWindow : Window, IDisposable
 
     #region Explorer Tab Event Handlers
 
-    private async void BrowseExplorerImageButton_Click(object? sender, RoutedEventArgs e)
+    private async void BrowseExplorerImageButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -2503,7 +2700,7 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
-    private async void OpenExplorerImageButton_Click(object? sender, RoutedEventArgs e)
+    private async void OpenExplorerImageButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -2522,7 +2719,7 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
-    private async void RefreshExplorerButton_Click(object? sender, RoutedEventArgs e)
+    private async void RefreshExplorerButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -2538,7 +2735,14 @@ public partial class MainWindow : Window, IDisposable
 
     private void CloseExplorerButton_Click(object? sender, RoutedEventArgs e)
     {
-        CloseExplorerImage();
+        try
+        {
+            CloseExplorerImage();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method CloseExplorerButton_Click");
+        }
     }
 
     private async Task OpenExplorerImageAsync(string path, int partitionIndex = 0)
@@ -2583,7 +2787,7 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
-    private async void ExplorerPartitionComboBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private async void ExplorerPartitionComboBox_SelectionChangedAsync(object? sender, SelectionChangedEventArgs e)
     {
         try
         {
@@ -2617,10 +2821,17 @@ public partial class MainWindow : Window, IDisposable
 
     private void ExplorerTreeView_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        UpdateExplorerSelection(ExplorerTreeView.SelectedItem as Models.ExplorerTreeNode);
+        try
+        {
+            UpdateExplorerSelection(ExplorerTreeView.SelectedItem as Models.ExplorerTreeNode);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method ExplorerTreeView_SelectionChanged");
+        }
     }
 
-    private async void CopyOutExplorerButton_Click(object? sender, RoutedEventArgs e)
+    private async void CopyOutExplorerButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -2680,7 +2891,7 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
-    private async void HashExplorerButton_Click(object? sender, RoutedEventArgs e)
+    private async void HashExplorerButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {

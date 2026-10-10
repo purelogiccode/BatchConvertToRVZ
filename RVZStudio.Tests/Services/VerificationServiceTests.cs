@@ -10,6 +10,7 @@ namespace RVZStudio.Tests.Services;
 public class VerificationServiceTests : IDisposable
 {
     private readonly List<string> _logMessages = [];
+    private readonly List<LogEventLevel> _logLevels = [];
     private readonly string _tempDir;
 
     public VerificationServiceTests()
@@ -39,16 +40,20 @@ public class VerificationServiceTests : IDisposable
     {
         var logger = new LoggerConfiguration()
             .MinimumLevel.Verbose()
-            .WriteTo.Sink(new DelegatingSink(msg => _logMessages.Add(msg)))
+            .WriteTo.Sink(new DelegatingSink((level, msg) =>
+            {
+                _logLevels.Add(level);
+                _logMessages.Add(msg);
+            }))
             .CreateLogger();
         return new VerificationService(logger);
     }
 
     private sealed class DelegatingSink : ILogEventSink
     {
-        private readonly Action<string> _onMessage;
+        private readonly Action<LogEventLevel, string> _onMessage;
 
-        public DelegatingSink(Action<string> onMessage)
+        public DelegatingSink(Action<LogEventLevel, string> onMessage)
         {
             _onMessage = onMessage;
         }
@@ -57,7 +62,7 @@ public class VerificationServiceTests : IDisposable
         {
             var sw = new StringWriter();
             logEvent.MessageTemplate.Render(logEvent.Properties, sw, CultureInfo.InvariantCulture);
-            _onMessage(sw.ToString());
+            _onMessage(logEvent.Level, sw.ToString());
         }
     }
 
@@ -118,7 +123,12 @@ public class VerificationServiceTests : IDisposable
             static (_, _, _) => { }, static _ => { }, _ => failureCount++, CancellationToken.None);
 
         Assert.Equal(1, failureCount);
-        Assert.Contains(_logMessages, static m => m.Contains("Error verifying file"));
+
+        // A missing optional DolphinTool is an expected environment condition and must not be
+        // logged at Warning or Error, because those levels are forwarded to the Bug Report API
+        // (regression: bug report 67998 "Missing critical files: DolphinTool.exe").
+        Assert.Contains(_logMessages, static m => m.Contains("fallback engine is unavailable"));
+        Assert.DoesNotContain(_logLevels, static level => level >= LogEventLevel.Warning);
     }
 
     [Fact]

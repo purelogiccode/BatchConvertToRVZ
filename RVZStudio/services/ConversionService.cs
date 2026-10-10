@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Globalization;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Channels;
 using Serilog;
@@ -8,19 +7,42 @@ using SharpCompress.Archives;
 
 namespace RVZStudio.services;
 
+/// <summary>
+/// Converts disc images (and archives containing them) to RVZ. RVZSharp is the primary
+/// engine; DolphinTool is used as a fallback when the native engine cannot handle a file.
+/// </summary>
 public class ConversionService
 {
     private readonly ILogger _logger;
-    private readonly FileService _fileService;
     private readonly RvzSharpService _rvzSharpService;
 
-    public ConversionService(ILogger logger, FileService fileService, RvzSharpService? rvzSharpService = null)
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ConversionService"/> class.
+    /// </summary>
+    /// <param name="logger">The logger used to report conversion activity and failures.</param>
+    /// <param name="rvzSharpService">The native engine, or null to create a new one.</param>
+    public ConversionService(ILogger logger, RvzSharpService? rvzSharpService = null)
     {
         _logger = logger.ForContext<ConversionService>();
-        _fileService = fileService;
         _rvzSharpService = rvzSharpService ?? new RvzSharpService(logger);
     }
 
+    /// <summary>
+    /// Converts a batch of files to RVZ, reporting progress and per-file success/failure.
+    /// </summary>
+    /// <param name="dolphinToolPath">Path to the optional DolphinTool fallback executable.</param>
+    /// <param name="files">The input file paths to convert.</param>
+    /// <param name="outputFolder">The folder that receives the converted RVZ files.</param>
+    /// <param name="deleteFiles">Whether to delete each source file after a successful conversion.</param>
+    /// <param name="compressionMethod">The RVZ compression method (zstd, bzip2, lzma or lzma2).</param>
+    /// <param name="compressionLevel">The compression level.</param>
+    /// <param name="blockSize">The RVZ block size in bytes.</param>
+    /// <param name="updateProgress">Receives (processed, total, currentFileName) after each file.</param>
+    /// <param name="incrementSuccess">Called with the number of newly succeeded files.</param>
+    /// <param name="incrementFailure">Called with the number of newly failed files.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <param name="scrub">Whether to zero non-game Wii partitions before encoding.</param>
+    /// <param name="fileProgress">Optional per-file progress receiver (fraction in [0, 1]).</param>
     public async Task PerformBatchConversionAsync(
         string dolphinToolPath,
         string[] files,
@@ -48,6 +70,9 @@ public class ConversionService
                 _logger.Information("{Message:l}", "No files selected for conversion.");
                 return;
             }
+
+            // Ensure the destination exists so the engine can write its output directly.
+            Directory.CreateDirectory(outputFolder);
 
             var filesProcessedCount = 0;
 
@@ -350,8 +375,9 @@ public class ConversionService
 
         if (!ProcessHelper.ExecutableExists(dolphinToolPath))
         {
-            _logger.Error("DolphinTool is missing. {Message:l}",
-                ProcessHelper.GetMissingExecutableMessage(dolphinToolPath));
+            // DolphinTool is an optional fallback; a missing helper is an expected environment
+            // condition, so log it at Information level (no bug report) and fail this file.
+            _logger.Information("{Message:l}", ProcessHelper.GetMissingExecutableMessage(dolphinToolPath));
             return false;
         }
 
@@ -601,7 +627,7 @@ public class ConversionService
             tempDir = Path.Combine(Path.GetTempPath(), "RVZStudio_7Zip_" + Path.GetRandomFileName());
             Directory.CreateDirectory(tempDir);
 
-            var sevenZipPath = Get7ZipExecutablePath();
+            var sevenZipPath = ProcessHelper.Get7ZipExecutablePath();
             if (!File.Exists(sevenZipPath))
             {
                 _logger.Information("{Message:l}", $"7za executable not found at: {sevenZipPath}");
@@ -702,17 +728,6 @@ public class ConversionService
 
             return (false, string.Empty, string.Empty, $"7za.exe extraction error: {ex.Message}", false);
         }
-    }
-
-    internal static string Get7ZipExecutablePath()
-    {
-        var architecture = RuntimeInformation.ProcessArchitecture;
-        var suffix = architecture == Architecture.Arm64 ? "_arm64" : string.Empty;
-
-        // Windows releases ship 7za(.exe); Linux/macOS builds use extension-less binaries.
-        var extension = OperatingSystem.IsWindows() ? ".exe" : string.Empty;
-
-        return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"7za{suffix}{extension}");
     }
 
     private Task<bool> TryDeleteFileAsync(string filePath, string description)

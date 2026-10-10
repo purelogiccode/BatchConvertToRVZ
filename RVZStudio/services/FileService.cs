@@ -37,27 +37,7 @@ public sealed class FileService
     /// <returns>Array of explorer-supported disc image extensions.</returns>
     public static string[] GetExplorerExtensions()
     {
-        return ExplorerExtensions;
-    }
-
-    /// <summary>
-    /// Determines whether the specified file is a disc image the Explorer tab can open.
-    /// </summary>
-    /// <param name="filePath">The file path.</param>
-    /// <returns>true if the file is an explorer-supported disc image; otherwise, false.</returns>
-    public static bool IsSupportedExplorerFile(string filePath)
-    {
-        var fileName = Path.GetFileName(filePath);
-
-        // NKIT containers are not understood by RVZSharp.
-        if (fileName.EndsWith(".nkit.iso", StringComparison.OrdinalIgnoreCase) ||
-            fileName.EndsWith(".nkit.gcz", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        var extension = Path.GetExtension(filePath);
-        return ExplorerExtensions.Any(ext => ext.Equals(extension, StringComparison.OrdinalIgnoreCase));
+        return [.. ExplorerExtensions];
     }
 
     /// <summary>
@@ -66,7 +46,7 @@ public sealed class FileService
     /// <returns>Array of archive extensions.</returns>
     public static string[] GetArchiveExtensions()
     {
-        return ArchiveExtensions;
+        return [.. ArchiveExtensions];
     }
 
     /// <summary>
@@ -75,7 +55,7 @@ public sealed class FileService
     /// <returns>Array of target extensions.</returns>
     public static string[] GetPrimaryTargetExtensionsInsideArchive()
     {
-        return PrimaryTargetExtensionsInsideArchive;
+        return [.. PrimaryTargetExtensionsInsideArchive];
     }
 
     /// <summary>
@@ -84,16 +64,7 @@ public sealed class FileService
     /// <returns>Array of RVZ extensions.</returns>
     public static string[] GetRvzExtensions()
     {
-        return RvzExtension;
-    }
-
-    /// <summary>
-    /// Gets extraction input file extensions (RVZ, 7Z, RAR, ZIP).
-    /// </summary>
-    /// <returns>Array of extraction input extensions.</returns>
-    public static string[] GetExtractionInputExtensions()
-    {
-        return ExtractionInputExtensions;
+        return [.. RvzExtension];
     }
 
     /// <summary>

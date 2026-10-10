@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using RVZStudio.Models;
+using Serilog;
 
 namespace RVZStudio.services;
 
@@ -55,8 +56,11 @@ public class BugReportService : IDisposable
             var response = await _httpClient.PostAsync(_apiUrl, content);
             return response.IsSuccessStatusCode;
         }
-        catch
+        catch (Exception ex)
         {
+            // Debug only: logging at Warning+ here would be forwarded back into this
+            // service by the Bug Report sink and could loop.
+            Log.Debug(ex, "Failed to send bug report: {Message}", ex.Message);
             return false;
         }
     }
@@ -77,8 +81,11 @@ public class BugReportService : IDisposable
             var response = await _httpClient.PostAsync(_apiUrl, content);
             return response.IsSuccessStatusCode;
         }
-        catch
+        catch (Exception ex)
         {
+            // Debug only: logging at Warning+ here would be forwarded back into this
+            // service by the Bug Report sink and could loop.
+            Log.Debug(ex, "Failed to send bug report: {Message}", ex.Message);
             return false;
         }
     }
@@ -98,7 +105,7 @@ public class BugReportService : IDisposable
     /// Packs all environment and exception details into the message field since the API only
     /// recognizes: message, applicationName, version, userInfo, environment, stackTrace.
     /// </summary>
-    private object BuildApiPayload(string message, Exception? exception, SystemInfo systemInfo)
+    internal object BuildApiPayload(string message, Exception? exception, SystemInfo systemInfo)
     {
         return new
         {
@@ -114,7 +121,7 @@ public class BugReportService : IDisposable
     /// Builds the complete bug report message with environment details, error details,
     /// and exception details in separate sections.
     /// </summary>
-    private static string BuildBugReportMessage(string message, Exception? exception, SystemInfo systemInfo)
+    internal static string BuildBugReportMessage(string message, Exception? exception, SystemInfo systemInfo)
     {
         var sb = new StringBuilder();
 
@@ -125,8 +132,10 @@ public class BugReportService : IDisposable
         sb.AppendLine(CultureInfo.InvariantCulture, $"OS Version: {systemInfo.OsVersion}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Architecture: {systemInfo.Architecture}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Bitness: {systemInfo.Bitness}");
-        sb.AppendLine(CultureInfo.InvariantCulture, $"Windows Version: {systemInfo.WindowsVersion}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"Windows, Linux or MacOsX Version: {systemInfo.WindowsVersion}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Processor Count: {systemInfo.ProcessorCount}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"Base Directory: {systemInfo.BaseDirectory}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"Temp Path: {systemInfo.TempPath}");
 
         sb.AppendLine();
         sb.AppendLine("=== Error Details ===");
@@ -139,6 +148,8 @@ public class BugReportService : IDisposable
             sb.AppendLine(CultureInfo.InvariantCulture, $"Type: {exception.GetType().FullName}");
             sb.AppendLine(CultureInfo.InvariantCulture, $"Message: {exception.Message}");
             sb.AppendLine(CultureInfo.InvariantCulture, $"Source: {exception.Source ?? "Unknown"}");
+            sb.AppendLine(CultureInfo.InvariantCulture,
+                $"StackTrace: {TruncateString(exception.StackTrace ?? "Unknown", 1500)}");
         }
 
         return TruncateString(sb.ToString(), 4000);
@@ -147,7 +158,7 @@ public class BugReportService : IDisposable
     /// <summary>
     /// Returns a short environment summary for the API's environment field (max 50 chars).
     /// </summary>
-    private static string GetEnvironmentShort(SystemInfo systemInfo)
+    internal static string GetEnvironmentShort(SystemInfo systemInfo)
     {
         return TruncateString($"{systemInfo.WindowsVersion} {systemInfo.Bitness}", 50);
     }
@@ -155,7 +166,7 @@ public class BugReportService : IDisposable
     /// <summary>
     /// Truncates a string to the specified maximum length, appending "..." if truncated.
     /// </summary>
-    private static string TruncateString(string value, int maxLength)
+    internal static string TruncateString(string value, int maxLength)
     {
         if (string.IsNullOrEmpty(value) || value.Length <= maxLength)
             return value;
@@ -166,7 +177,7 @@ public class BugReportService : IDisposable
     /// <summary>
     /// Gets system information for the bug report
     /// </summary>
-    private SystemInfo GetSystemInfo()
+    internal SystemInfo GetSystemInfo()
     {
         var systemInfo = new SystemInfo
         {
@@ -177,7 +188,9 @@ public class BugReportService : IDisposable
             Architecture = RuntimeInformation.ProcessArchitecture.ToString().ToUpperInvariant(),
             Bitness = Environment.Is64BitOperatingSystem ? "64-bit" : "32-bit",
             WindowsVersion = GetWindowsVersion(),
-            ProcessorCount = Environment.ProcessorCount
+            ProcessorCount = Environment.ProcessorCount,
+            BaseDirectory = AppDomain.CurrentDomain.BaseDirectory,
+            TempPath = Path.GetTempPath()
         };
 
         return systemInfo;
@@ -222,18 +235,12 @@ public class BugReportService : IDisposable
         return "Unknown OS";
     }
 
+    /// <summary>
+    /// Releases the HTTP client used by this service.
+    /// </summary>
     public void Dispose()
     {
         _httpClient.Dispose();
         GC.SuppressFinalize(this);
-    }
-
-    /// <summary>
-    /// Disposes the shared handler when the application exits.
-    /// Call this method during application shutdown.
-    /// </summary>
-    public static void DisposeSharedHandler()
-    {
-        SharedHttpHandler.Dispose();
     }
 }

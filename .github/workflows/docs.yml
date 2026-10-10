@@ -1,0 +1,151 @@
+name: Docs
+
+# Publishes the contents of the `docs/` folder to GitHub Pages and to the repository wiki.
+#
+# Nothing is deployed automatically yet: this workflow only runs when it is started manually
+# from the Actions tab ("Run workflow") or when the Release workflow calls it for a `v*` tag.
+#
+# To publish on every documentation change, uncomment the `push` trigger below.
+on:
+  workflow_dispatch:
+  workflow_call:
+  # push:
+  #   branches: [ master ]
+  #   paths:
+  #     - 'docs/**'
+  #     - 'screenshot*.png'
+  #     - 'LICENSE.txt'
+  #     - '.github/workflows/docs.yml'
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build-pages:
+    name: Build Pages site
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Assemble site content
+        run: |
+          set -euo pipefail
+          mkdir -p site
+          cp -r docs/. site/
+
+          # The docs reference files that live one level above the docs folder with "../".
+          # Copying them to the site root keeps those relative links working.
+          for file in screenshot.png screenshot2.png screenshot3.png LICENSE.txt; do
+            if [ -f "$file" ]; then
+              cp "$file" site/
+            fi
+          done
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build with Jekyll
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./site
+          destination: ./_site
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./_site
+
+  deploy-pages:
+    name: Deploy Pages
+    runs-on: ubuntu-latest
+    needs: build-pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  publish-wiki:
+    name: Publish Wiki
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync docs to the wiki
+        env:
+          # A classic PAT with the "repo" scope in a WIKI_TOKEN secret is recommended because
+          # the default GITHUB_TOKEN may not be allowed to push to the wiki repository.
+          WIKI_TOKEN: ${{ secrets.WIKI_TOKEN || secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.event.repository.default_branch || 'master' }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${WIKI_TOKEN}" ]; then
+            echo "::error::No token available to publish the wiki. Add a WIKI_TOKEN secret (PAT with repo scope)."
+            exit 1
+          fi
+
+          # The wiki git repository only exists after the wiki is enabled and its first page
+          # has been created in the GitHub UI.
+          if ! git clone --depth 1 "https://x-access-token:${WIKI_TOKEN}@github.com/${REPO}.wiki.git" wiki; then
+            echo "::error::Could not clone ${REPO}.wiki.git. Enable the wiki and create the first page, then re-run this workflow."
+            exit 1
+          fi
+
+          # Replace the synced markdown pages, keeping any hand-written navigation pages.
+          find wiki -maxdepth 1 -name '*.md' ! -name '_Sidebar.md' ! -name '_Footer.md' -delete
+          cp docs/*.md wiki/
+          mv wiki/README.md wiki/Home.md
+
+          # Rewrite docs links for the wiki: page.md -> page, README.md -> Home, and files
+          # that live outside the docs folder -> absolute GitHub URLs.
+          find wiki -maxdepth 1 -name '*.md' -print0 | xargs -0 -r sed -i -E \
+            -e "s@\]\(\.\./screenshot\.png\)@](https://raw.githubusercontent.com/${REPO}/${BRANCH}/screenshot.png)@g" \
+            -e "s@\]\(\.\./screenshot2\.png\)@](https://raw.githubusercontent.com/${REPO}/${BRANCH}/screenshot2.png)@g" \
+            -e "s@\]\(\.\./screenshot3\.png\)@](https://raw.githubusercontent.com/${REPO}/${BRANCH}/screenshot3.png)@g" \
+            -e "s@\]\(\.\./LICENSE\.txt\)@](https://github.com/${REPO}/blob/${BRANCH}/LICENSE.txt)@g" \
+            -e "s@\]\(README\.md(#[^)]*)?\)@](Home\1)@g" \
+            -e "s@\]\(([A-Za-z0-9_-]+)\.md(#[^)]*)?\)@](\1\2)@g"
+
+          # Create a sidebar on the first run; later runs keep an existing one.
+          if [ ! -f wiki/_Sidebar.md ]; then
+            cat > wiki/_Sidebar.md <<'EOF'
+          **[RVZStudio](Home)**
+
+          * [Getting Started](getting-started)
+          * [User Guide](user-guide)
+          * [Settings Reference](settings-reference)
+          * [Troubleshooting](troubleshooting)
+          * [FAQ](faq)
+          * [Architecture](architecture)
+          * [Building](building)
+          * [Contributing](contributing)
+          EOF
+          fi
+
+          cd wiki
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Wiki is already up to date."
+          else
+            git commit -m "Sync wiki from docs/"
+            git push
+          fi

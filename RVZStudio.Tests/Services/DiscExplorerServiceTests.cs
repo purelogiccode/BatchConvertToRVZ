@@ -240,4 +240,169 @@ public class DiscExplorerServiceTests : IDisposable
         Assert.Equal(FileData.Length, child.Size);
         Assert.False(child.IsDummy);
     }
+
+    [Theory]
+    [InlineData(0u, "game")]
+    [InlineData(1u, "update")]
+    [InlineData(2u, "channel")]
+    [InlineData(3u, "type 3")]
+    [InlineData(99u, "type 99")]
+    public void PartitionNameMapsKnownAndUnknownTypes(uint type, string expected)
+    {
+        Assert.Equal(expected, DiscExplorerSession.PartitionName(type));
+    }
+
+    [Fact]
+    public void ComputeSha256ThrowsForDirectory()
+    {
+        using var session = _service.TryOpen(WriteDisc("game.iso"));
+        Assert.NotNull(session);
+        var directory = session.Root.Children[0];
+
+        Assert.Throws<ArgumentException>(() => session.ComputeSha256(directory, CancellationToken.None));
+    }
+
+    [Fact]
+    public void CopyNodeToThrowsWhenCancelled()
+    {
+        using var session = _service.TryOpen(WriteDisc("game.iso"));
+        Assert.NotNull(session);
+        var file = session.Root.Children[0].Children[0];
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        Assert.ThrowsAny<OperationCanceledException>(() =>
+            session.CopyNodeTo(file, Path.Combine(_tempDir, "cancelled.bin"), cts.Token));
+    }
+
+    [Fact]
+    public void SessionReportsNoPartitionsForGameCubeDisc()
+    {
+        using var session = _service.TryOpen(WriteDisc("game.iso"));
+        Assert.NotNull(session);
+
+        Assert.Equal(0, session.PartitionCount);
+        Assert.Equal(0, session.PartitionIndex);
+        Assert.True(session.FstSize > 0);
+        Assert.True(session.FstOffset > 0);
+    }
+
+    [Fact]
+    public void SelectPartitionIsNoOpForGameCubeDisc()
+    {
+        using var session = _service.TryOpen(WriteDisc("game.iso"));
+        Assert.NotNull(session);
+
+        var exception = Record.Exception(() => session.SelectPartition(1));
+
+        Assert.Null(exception);
+        Assert.Equal(0, session.PartitionIndex);
+    }
+
+    [Fact]
+    public void TryOpenReturnsNullForNonexistentFile()
+    {
+        var session = _service.TryOpen(Path.Combine(_tempDir, "missing.iso"));
+
+        Assert.Null(session);
+        Assert.Contains(_logMessages, static m => m.Contains("Explorer could not open"));
+    }
+
+    [Fact]
+    public void ExplorerTreeNodeUsesSlashNameForRoot()
+    {
+        using var session = _service.TryOpen(WriteDisc("game.iso"));
+        Assert.NotNull(session);
+
+        var rootNode = new ExplorerTreeNode(session.Root);
+
+        Assert.Equal("/", rootNode.Name);
+        Assert.True(rootNode.IsDirectory);
+    }
+
+    [Fact]
+    public void ExplorerTreeNodeSelectionRaisesPropertyChanged()
+    {
+        using var session = _service.TryOpen(WriteDisc("game.iso"));
+        Assert.NotNull(session);
+        var node = new ExplorerTreeNode(session.Root.Children[0]);
+        var raised = new List<string>();
+        node.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != null) raised.Add(e.PropertyName);
+        };
+
+        node.IsSelected = true;
+
+        Assert.Contains(nameof(ExplorerTreeNode.IsSelected), raised);
+        Assert.True(node.IsSelected);
+    }
+
+    [Fact]
+    public void ExplorerTreeNodeExpansionRaisesPropertyChanged()
+    {
+        using var session = _service.TryOpen(WriteDisc("game.iso"));
+        Assert.NotNull(session);
+        var node = new ExplorerTreeNode(session.Root.Children[0]);
+        var raised = new List<string>();
+        node.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != null) raised.Add(e.PropertyName);
+        };
+
+        node.IsExpanded = true;
+
+        Assert.Contains(nameof(ExplorerTreeNode.IsExpanded), raised);
+    }
+
+    [Fact]
+    public void ExplorerTreeNodeDummyCannotBeExpandedOrSelected()
+    {
+        using var session = _service.TryOpen(WriteDisc("game.iso"));
+        Assert.NotNull(session);
+        var node = new ExplorerTreeNode(session.Root.Children[0]);
+        var placeholder = Assert.Single(node.Children);
+
+        placeholder.IsExpanded = true;
+        placeholder.IsSelected = true;
+
+        Assert.False(placeholder.IsExpanded);
+        Assert.False(placeholder.IsSelected);
+    }
+
+    [Fact]
+    public void ExplorerTreeNodeFileHasEmptyChildrenAndSizeSuffix()
+    {
+        using var session = _service.TryOpen(WriteDisc("game.iso"));
+        Assert.NotNull(session);
+        var fileNode = new ExplorerTreeNode(session.Root.Children[0].Children[0]);
+
+        Assert.Empty(fileNode.Children);
+        Assert.Equal("16 B", fileNode.Suffix);
+        Assert.Equal(FileData.Length, fileNode.Size);
+        Assert.Equal(0x2000, fileNode.Offset);
+    }
+
+    [Fact]
+    public void ExplorerTreeNodeDirectorySuffixIsDir()
+    {
+        using var session = _service.TryOpen(WriteDisc("game.iso"));
+        Assert.NotNull(session);
+        var directoryNode = new ExplorerTreeNode(session.Root.Children[0]);
+
+        Assert.Equal("dir", directoryNode.Suffix);
+        Assert.Equal(0, directoryNode.Size);
+    }
+
+    [Fact]
+    public void ExplorerTreeNodeStoresWrappedData()
+    {
+        using var session = _service.TryOpen(WriteDisc("game.iso"));
+        Assert.NotNull(session);
+        var data = session.Root.Children[0];
+        var node = new ExplorerTreeNode(data);
+
+        Assert.Same(data, node.Data);
+        Assert.Equal(data.Path, node.FullPath);
+    }
 }

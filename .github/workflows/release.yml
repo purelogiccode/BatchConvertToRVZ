@@ -81,3 +81,13 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: false
+
+  docs:
+    name: Publish Docs
+    needs: release
+    uses: ./.github/workflows/docs.yml
+    secrets: inherit
+    permissions:
+      contents: write
+      pages: write
+      id-token: write

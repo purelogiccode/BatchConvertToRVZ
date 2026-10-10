@@ -10,8 +10,8 @@ namespace RVZStudio.Tests.Services;
 
 public class ExtractionServiceTests : IDisposable
 {
-    private readonly FileService _fileService = new();
     private readonly List<string> _logMessages = [];
+    private readonly List<LogEventLevel> _logLevels = [];
     private readonly string _tempDir;
 
     public ExtractionServiceTests()
@@ -41,16 +41,20 @@ public class ExtractionServiceTests : IDisposable
     {
         var logger = new LoggerConfiguration()
             .MinimumLevel.Verbose()
-            .WriteTo.Sink(new DelegatingSink(msg => _logMessages.Add(msg)))
+            .WriteTo.Sink(new DelegatingSink((level, msg) =>
+            {
+                _logLevels.Add(level);
+                _logMessages.Add(msg);
+            }))
             .CreateLogger();
-        return new ExtractionService(logger, _fileService);
+        return new ExtractionService(logger);
     }
 
     private sealed class DelegatingSink : ILogEventSink
     {
-        private readonly Action<string> _onMessage;
+        private readonly Action<LogEventLevel, string> _onMessage;
 
-        public DelegatingSink(Action<string> onMessage)
+        public DelegatingSink(Action<LogEventLevel, string> onMessage)
         {
             _onMessage = onMessage;
         }
@@ -59,7 +63,7 @@ public class ExtractionServiceTests : IDisposable
         {
             var sw = new StringWriter();
             logEvent.MessageTemplate.Render(logEvent.Properties, sw, CultureInfo.InvariantCulture);
-            _onMessage(sw.ToString());
+            _onMessage(logEvent.Level, sw.ToString());
         }
     }
 
@@ -84,7 +88,7 @@ public class ExtractionServiceTests : IDisposable
     [Fact]
     public void Get7ZipExecutablePathReturnsPathEndingWith7ZipExe()
     {
-        var result = ExtractionService.Get7ZipExecutablePath();
+        var result = ProcessHelper.Get7ZipExecutablePath();
 
         Assert.Contains(GetExpected7ZipExecutableName(), result);
     }
@@ -102,7 +106,7 @@ public class ExtractionServiceTests : IDisposable
     [Fact]
     public void Get7ZipExecutablePathReturnsAbsolutePath()
     {
-        var result = ExtractionService.Get7ZipExecutablePath();
+        var result = ProcessHelper.Get7ZipExecutablePath();
 
         Assert.True(Path.IsPathRooted(result));
     }
@@ -110,19 +114,19 @@ public class ExtractionServiceTests : IDisposable
     [Fact]
     public void Get7ZipExecutablePathContainsBaseDirectory()
     {
-        var result = ExtractionService.Get7ZipExecutablePath();
+        var result = ProcessHelper.Get7ZipExecutablePath();
         var baseDir = AppDomain.CurrentDomain.BaseDirectory;
 
         Assert.StartsWith(baseDir, result);
     }
 
     [Fact]
-    public void Get7ZipExecutablePathConsistentWithConversionService()
+    public void Get7ZipExecutablePathReturnsSamePathOnRepeatedCalls()
     {
-        var conversionResult = ConversionService.Get7ZipExecutablePath();
-        var extractionResult = ExtractionService.Get7ZipExecutablePath();
+        var firstResult = ProcessHelper.Get7ZipExecutablePath();
+        var secondResult = ProcessHelper.Get7ZipExecutablePath();
 
-        Assert.Equal(conversionResult, extractionResult);
+        Assert.Equal(firstResult, secondResult);
     }
 
     [Fact]
@@ -291,11 +295,13 @@ public class ExtractionServiceTests : IDisposable
         Assert.Equal(0, successCount);
         Assert.Equal(1, failureCount);
 
-        // Regression (bugs 65211-65219): when DolphinTool cannot be started, the catch
-        // block must report the real cause ("DolphinTool process error: ...") instead of
-        // crashing on process.HasExited with "No process is associated with this object".
-        Assert.Contains(_logMessages, static m => m.Contains("DolphinTool process error"));
+        // Regression (bugs 65211-65219): when DolphinTool cannot be started, the real cause must
+        // be reported instead of crashing on process.HasExited with "No process is associated
+        // with this object". A missing optional DolphinTool is an expected environment condition
+        // and must not be logged at Warning or Error (those levels become bug reports, e.g. 67998).
+        Assert.Contains(_logMessages, static m => m.Contains("fallback engine is unavailable"));
         Assert.DoesNotContain(_logMessages, static m => m.Contains("No process is associated with this object"));
+        Assert.DoesNotContain(_logLevels, static level => level >= LogEventLevel.Warning);
     }
 
     [Fact]
@@ -352,5 +358,85 @@ public class ExtractionServiceTests : IDisposable
         Assert.Equal(0, failureCount);
         Assert.Contains(_logMessages,
             m => m.Contains($"Converted to {outputFormat.ToUpperInvariant()} using RVZSharp"));
+    }
+
+    [Fact]
+    public async Task PerformBatchExtractionAsyncIsoExtractsNativelyFromRvz()
+    {
+        var service = CreateService();
+        var rvzPath = CreateValidRvz("game.rvz");
+
+        // The output folder does not exist yet: the service must create it.
+        var outputFolder = Path.Combine(_tempDir, "iso-out");
+
+        var successCount = 0;
+        var failureCount = 0;
+
+        await service.PerformBatchExtractionAsync(
+            @"C:\nonexistent_path\fake_dolphin.exe", [rvzPath], outputFolder, false, "iso",
+            static (_, _, _) => { }, _ => successCount++, _ => failureCount++, CancellationToken.None);
+
+        Assert.Equal(1, successCount);
+        Assert.Equal(0, failureCount);
+        Assert.True(File.Exists(Path.Combine(outputFolder, "game.iso")));
+        Assert.Contains(_logMessages, static m => m.Contains("Converted to ISO using RVZSharp"));
+    }
+
+    [Fact]
+    public async Task PerformBatchExtractionAsyncDeletesOriginalRvzWhenRequested()
+    {
+        var service = CreateService();
+        var rvzPath = CreateValidRvz("game.rvz");
+        var outputFolder = Path.Combine(_tempDir, "delete-out");
+        Directory.CreateDirectory(outputFolder);
+
+        var successCount = 0;
+
+        await service.PerformBatchExtractionAsync(
+            @"C:\nonexistent_path\fake_dolphin.exe", [rvzPath], outputFolder, true, "iso",
+            static (_, _, _) => { }, _ => successCount++, static _ => { }, CancellationToken.None);
+
+        Assert.Equal(1, successCount);
+        Assert.False(File.Exists(rvzPath));
+        Assert.True(File.Exists(Path.Combine(outputFolder, "game.iso")));
+        Assert.Contains(_logMessages, static m => m.Contains("Deleted original file"));
+    }
+
+    [Fact]
+    public async Task PerformBatchExtractionAsyncProgressCallbackReceivesTotalAndFileName()
+    {
+        var service = CreateService();
+        var rvzPath = CreateValidRvz("game.rvz");
+        var outputFolder = Path.Combine(_tempDir, "progress-out");
+        Directory.CreateDirectory(outputFolder);
+        var progress = new List<(int Processed, int Total, string Name)>();
+
+        await service.PerformBatchExtractionAsync(
+            @"C:\nonexistent_path\fake_dolphin.exe", [rvzPath], outputFolder, false, "iso",
+            (processed, total, name) => progress.Add((processed, total, name)), static _ => { }, static _ => { },
+            CancellationToken.None);
+
+        var entry = Assert.Single(progress);
+        Assert.Equal(1, entry.Processed);
+        Assert.Equal(1, entry.Total);
+        Assert.Equal("game.rvz", entry.Name);
+    }
+
+    private string CreateValidRvz(string fileName)
+    {
+        var isoPath = Path.Combine(_tempDir, $"source_{Path.GetRandomFileName()}.iso");
+        var rvzPath = Path.Combine(_tempDir, fileName);
+        var content = new byte[350_000];
+        new Random(42).NextBytes(content);
+        content[0x1C] = 0xC2;
+        content[0x1D] = 0x33;
+        content[0x1E] = 0x9F;
+        content[0x1F] = 0x3D;
+        File.WriteAllBytes(isoPath, content);
+
+        var encoder = new RvzSharpService(new LoggerConfiguration().CreateLogger());
+        Assert.True(encoder.TryEncode(isoPath, rvzPath, "zstd", 5, 131072, scrub: false, progress: null,
+            CancellationToken.None));
+        return rvzPath;
     }
 }

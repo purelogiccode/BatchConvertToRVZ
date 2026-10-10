@@ -27,11 +27,19 @@ public class UiLogSink : ILogEventSink
     /// </summary>
     public static event EventHandler<LogMessageEventArgs>? MessageLogged;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="UiLogSink"/> class.
+    /// </summary>
+    /// <param name="formatProvider">The format provider used to render messages.</param>
     public UiLogSink(IFormatProvider? formatProvider = null)
     {
         _formatProvider = formatProvider;
     }
 
+    /// <summary>
+    /// Raises <see cref="MessageLogged"/> with the rendered, timestamped log line.
+    /// </summary>
+    /// <param name="logEvent">The log event to forward to the UI.</param>
     public void Emit(LogEvent logEvent)
     {
         var handler = MessageLogged;

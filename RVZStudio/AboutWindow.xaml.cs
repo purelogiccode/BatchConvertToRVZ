@@ -3,6 +3,8 @@ using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Input;
 using RVZStudio.dialogs;
+using RVZStudio.Models;
+using Serilog;
 
 namespace RVZStudio;
 
@@ -24,11 +26,8 @@ public partial class AboutWindow : Window
         }
         catch (Exception ex)
         {
-            // Notify developer if initialization fails
-            if (App.BugReportServiceInstance != null)
-            {
-                _ = App.BugReportServiceInstance.SendBugReportAsync($"Error initializing AboutWindow: {ex.Message}");
-            }
+            // Notify developer through Serilog (Warning+ is forwarded to the Bug Report API)
+            Log.Error(ex, "Error initializing AboutWindow");
 
             // Notify user and rethrow to prevent window from opening in invalid state
             _ = MessageBox.ShowAsync(null, $"Error initializing About window: {ex.Message}",
@@ -37,11 +36,22 @@ public partial class AboutWindow : Window
         }
     }
 
+    /// <summary>
+    /// Closes the About window.
+    /// </summary>
+    /// <param name="sender">The button that raised the event.</param>
+    /// <param name="e">The event arguments.</param>
     private void CloseButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         Close();
     }
 
+    /// <summary>
+    /// Opens the hyperlink stored in the clicked <see cref="TextBlock"/>'s <c>Tag</c> property
+    /// in the default browser.
+    /// </summary>
+    /// <param name="sender">The clicked text block carrying the URL in its <c>Tag</c>.</param>
+    /// <param name="e">The event arguments.</param>
     private void Hyperlink_RequestNavigate(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not TextBlock { Tag: string url }) return;
@@ -58,12 +68,8 @@ public partial class AboutWindow : Window
         }
         catch (Exception ex)
         {
-            // Notify developer
-            if (App.BugReportServiceInstance != null)
-            {
-                _ = App.BugReportServiceInstance.SendBugReportAsync(
-                    $"Error opening URL: {url}. Exception: {ex.Message}");
-            }
+            // Notify developer through Serilog (Warning+ is forwarded to the Bug Report API)
+            Log.Error(ex, "Error opening URL {Url}", url);
 
             // Notify user
             _ = MessageBox.ShowAsync(null, $"Unable to open link: {ex.Message}",
@@ -71,6 +77,10 @@ public partial class AboutWindow : Window
         }
     }
 
+    /// <summary>
+    /// Gets the version of the executing assembly.
+    /// </summary>
+    /// <returns>The assembly version, or "Unknown" when unavailable.</returns>
     private static string GetApplicationVersion()
     {
         var version = Assembly.GetExecutingAssembly().GetName().Version;

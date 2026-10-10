@@ -1,0 +1,6 @@
+title: RVZStudio Documentation
+description: User and developer documentation for RVZStudio, the batch GameCube/Wii disc image converter.
+markdown: GFM
+plugins:
+  - jekyll-relative-links
+  - jekyll-readme-index

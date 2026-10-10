@@ -9,6 +9,10 @@ using Serilog.Events;
 
 namespace RVZStudio;
 
+/// <summary>
+/// The RVZStudio Avalonia application. Configures Serilog, owns the Bug Report and Stats
+/// services, wires global exception handlers and starts usage statistics on launch.
+/// </summary>
 public class App : Application
 {
     // Bug Report API configuration
@@ -21,9 +25,20 @@ public class App : Application
     private const string StatsApiKey = "hjh7yu6t56tyr540o9u8767676r5674534453235264c75b6t7ggghgg76trf564e";
     private const string StatsApplicationId = "BatchConvertToRVZ";
 
+    /// <summary>
+    /// Gets the application-wide bug report service, or null before the application is initialized.
+    /// </summary>
     public static BugReportService? BugReportServiceInstance { get; private set; }
+
+    /// <summary>
+    /// Gets the application-wide usage statistics service, or null before the application is initialized.
+    /// </summary>
     public static StatsService? StatsServiceInstance { get; private set; }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="App"/> class, cleans up legacy files,
+    /// creates the HTTP services and configures Serilog with the UI, file and bug report sinks.
+    /// </summary>
     public App()
     {
         // Clean up old DLL files from previous versions
@@ -65,20 +80,43 @@ public class App : Application
         TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
     }
 
+    /// <summary>
+    /// Loads the application XAML resources.
+    /// </summary>
     public override void Initialize()
     {
-        AvaloniaXamlLoader.Load(this);
+        try
+        {
+            AvaloniaXamlLoader.Load(this);
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "Failed to load application XAML");
+            throw;
+        }
     }
 
+    /// <summary>
+    /// Creates the main window, hooks the shutdown handler and fires the launch usage
+    /// statistics request.
+    /// </summary>
     public override void OnFrameworkInitializationCompleted()
     {
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        try
         {
-            desktop.MainWindow = new MainWindow();
-            desktop.Exit += App_Exit;
-        }
+            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                desktop.MainWindow = new MainWindow();
+                desktop.Exit += App_Exit;
+            }
 
-        base.OnFrameworkInitializationCompleted();
+            base.OnFrameworkInitializationCompleted();
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "Failed to initialize the main window");
+            throw;
+        }
 
         // Send usage statistics on application launch
         if (StatsServiceInstance != null)
@@ -121,17 +159,28 @@ public class App : Application
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Silently ignore any errors during cleanup
+            // Cleanup is best-effort only; log at Debug to avoid bug report noise.
+            Log.Debug(ex, "Failed to clean up old DLL files");
         }
     }
 
     private static void App_Exit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {
-        // Dispose of the services
-        BugReportServiceInstance?.Dispose();
-        StatsServiceInstance?.Dispose();
+        try
+        {
+            // Dispose of the services
+            BugReportServiceInstance?.Dispose();
+            StatsServiceInstance?.Dispose();
+
+            // Dispose the shared HTTP handler that backs every service
+            SharedHttpHandler.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "Error disposing services during shutdown");
+        }
 
         // Flush Serilog before exiting
         Log.CloseAndFlush();
@@ -181,9 +230,10 @@ public class App : Application
         {
             await dialogs.MessageBox.ShowAsync(null, message, title);
         }
-        catch
+        catch (Exception ex)
         {
-            // Ignore failures while reporting an error
+            // Ignore failures while reporting an error, but keep a debug trace.
+            Log.Debug(ex, "Failed to show message box while reporting an error");
         }
     }
 
@@ -212,9 +262,11 @@ public class App : Application
                 reportTask.Wait(TimeSpan.FromSeconds(5));
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Silently ignore any errors in the reporting process
+            // Silently ignore any errors in the reporting process; the logging pipeline
+            // may already be shut down, so only a debug trace is safe here.
+            Log.Debug(ex, "Failed to send fatal bug report directly");
         }
     }
 }
