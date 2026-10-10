@@ -31,8 +31,9 @@ The solution contains two projects:
 dotnet run --project RVZStudio/RVZStudio.csproj
 ```
 
-The application expects the helper executables (`DolphinTool*`, `7za*`) in its output directory;
-they are copied automatically from the project folder by the build.
+The optional fallback executables (`DolphinTool*`, `7za*`) are copied automatically from the
+project folder to the output directory by the build; the application runs without them using the
+built-in RVZSharp engine.
 
 ## Test
 

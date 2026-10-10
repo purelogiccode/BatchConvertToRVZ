@@ -11,6 +11,10 @@ public class FileServiceTests
     [InlineData("game.wbfs", true)]
     [InlineData("game.gcz", true)]
     [InlineData("game.wia", true)]
+    [InlineData("game.ciso", true)]
+    [InlineData("game.wbi", true)]
+    [InlineData("game.tgc", true)]
+    [InlineData("game.nfs", true)]
     [InlineData("game.nkit.iso", true)]
     [InlineData("game.zip", true)]
     [InlineData("game.7z", true)]
@@ -58,7 +62,9 @@ public class FileServiceTests
     public void GetPrimaryTargetExtensionsInsideArchiveReturnsExpectedValues()
     {
         var extensions = FileService.GetPrimaryTargetExtensionsInsideArchive();
-        Assert.Equal([".iso", ".gcm", ".wbfs", ".rvz", ".gcz", ".wia", ".nkit.iso"], extensions);
+        Assert.Equal(
+            [".iso", ".gcm", ".wbfs", ".rvz", ".gcz", ".wia", ".ciso", ".wbi", ".tgc", ".nfs", ".nkit.iso"],
+            extensions);
     }
 
     [Fact]
@@ -66,6 +72,35 @@ public class FileServiceTests
     {
         var extensions = FileService.GetRvzExtensions();
         Assert.Equal([".rvz"], extensions);
+    }
+
+    [Theory]
+    [InlineData("game.iso", true)]
+    [InlineData("game.gcm", true)]
+    [InlineData("game.wbfs", true)]
+    [InlineData("game.gcz", true)]
+    [InlineData("game.wia", true)]
+    [InlineData("game.rvz", true)]
+    [InlineData("game.ciso", true)]
+    [InlineData("game.wbi", true)]
+    [InlineData("game.tgc", true)]
+    [InlineData("game.nfs", true)]
+    [InlineData("game.nkit.iso", false)]
+    [InlineData("game.zip", false)]
+    [InlineData("game.txt", false)]
+    public void IsSupportedExplorerFileReturnsExpectedResult(string fileName, bool expected)
+    {
+        var result = FileService.IsSupportedExplorerFile(fileName);
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void GetExplorerExtensionsReturnsExpectedValues()
+    {
+        var extensions = FileService.GetExplorerExtensions();
+        Assert.Equal(
+            [".iso", ".gcm", ".wbfs", ".gcz", ".wia", ".rvz", ".ciso", ".wbi", ".tgc", ".nfs"],
+            extensions);
     }
 
     [Fact]
@@ -83,6 +118,10 @@ public class FileServiceTests
     [InlineData("game.rvz", "game")]
     [InlineData("game.gcz", "game")]
     [InlineData("game.wia", "game")]
+    [InlineData("game.ciso", "game")]
+    [InlineData("game.wbi", "game")]
+    [InlineData("game.tgc", "game")]
+    [InlineData("game.nfs", "game")]
     [InlineData("archive.zip", "archive")]
     public void GetBaseFileNameWithoutGameExtensionReturnsExpectedResult(string fileName, string expected)
     {

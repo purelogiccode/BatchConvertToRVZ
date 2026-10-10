@@ -27,7 +27,6 @@ public partial class MainWindow : Window, IDisposable
     private volatile bool _isClosing;
     private volatile bool _isShuttingDown;
     private Task? _runningTask;
-    private bool _dependenciesOk;
     private string? _dolphinToolPath;
     private CancellationTokenSource _cts;
     private readonly Lock _ctsLock = new();
@@ -38,6 +37,10 @@ public partial class MainWindow : Window, IDisposable
     private readonly ExtractionService _extractionService;
     private readonly FileService _fileService;
     private readonly ScreenshotService _screenshotService;
+    private readonly DiscExplorerService _discExplorerService;
+    private DiscExplorerSession? _explorerSession;
+    private readonly ObservableCollection<Models.ExplorerTreeNode> _explorerRoots = new();
+    private bool _isExplorerBusy;
 
     private const string GitHubApiUrl = "https://api.github.com/repos/purelogiccode/BatchConvertToRVZ/releases/latest";
 
@@ -167,9 +170,10 @@ public partial class MainWindow : Window, IDisposable
         _fileService = new FileService();
         var rvzSharpService = new RvzSharpService(Log.Logger);
         _conversionService = new ConversionService(Log.Logger, _fileService, rvzSharpService);
-        _verificationService = new VerificationService(Log.Logger);
+        _verificationService = new VerificationService(Log.Logger, rvzSharpService);
         _extractionService = new ExtractionService(Log.Logger, _fileService, rvzSharpService);
         _screenshotService = new ScreenshotService(Log.Logger);
+        _discExplorerService = new DiscExplorerService(Log.Logger);
 
         LogMessage("Welcome to RVZStudio.");
         LogMessage("");
@@ -185,6 +189,7 @@ public partial class MainWindow : Window, IDisposable
         ConversionFilesDataGrid.ItemsSource = _conversionFiles;
         VerificationFilesDataGrid.ItemsSource = _verificationFiles;
         ExtractionFilesDataGrid.ItemsSource = _extractionFiles;
+        ExplorerTreeView.ItemsSource = _explorerRoots;
 
         ResetOperationStats();
         InitializeProcessingTimeTimer();
@@ -204,64 +209,32 @@ public partial class MainWindow : Window, IDisposable
     private void CheckDependencies()
     {
         var appDirectory = AppDomain.CurrentDomain.BaseDirectory;
-        var missingFiles = new List<string>();
-        string? dolphinToolExeName;
 
+        // The native RVZSharp engine is built into the application, so no external
+        // executable is strictly required; DolphinTool is an optional fallback.
         try
         {
-            dolphinToolExeName = GetDolphinToolExecutableName();
+            var dolphinToolExeName = GetDolphinToolExecutableName();
             _dolphinToolPath = Path.Combine(appDirectory, dolphinToolExeName);
-            if (!File.Exists(_dolphinToolPath)) missingFiles.Add(dolphinToolExeName);
-        }
-        catch (PlatformNotSupportedException ex)
-        {
-            var errorMessage = $"Unsupported platform architecture. {ex.Message}";
-            LogMessage($"ERROR: {errorMessage}");
-            _ = ShowErrorAsync(errorMessage);
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await ReportBugAsync($"Unsupported platform: {ex.Message}", ex);
-                }
-                catch
-                {
-                    /* Silently ignore */
-                }
-            });
-            _dependenciesOk = false;
-            StartConversionButton.IsEnabled = false;
-            StartVerifyButton.IsEnabled = false;
-            return; // Stop further checks
-        }
 
-        if (missingFiles.Count != 0)
-        {
-            _dependenciesOk = false;
-            StartConversionButton.IsEnabled = false;
-            StartVerifyButton.IsEnabled = false;
-            StartExtractionButton.IsEnabled = false;
-            var missingFilesString = string.Join(", ", missingFiles);
-            var errorMessage =
-                $"The following critical file(s) are missing: {missingFilesString}.\n\nThe application cannot function without them. Please ensure all files from the release archive are in the same folder as this application.";
-            LogMessage($"WARNING: {errorMessage.ReplaceLineEndings(" ")}");
-            _ = ShowErrorAsync(errorMessage);
-        }
-        else
-        {
-            _dependenciesOk = true;
-            StartConversionButton.IsEnabled = true;
-            StartVerifyButton.IsEnabled = true;
-            StartExtractionButton.IsEnabled = true;
-
-            if (!string.IsNullOrEmpty(dolphinToolExeName))
+            if (File.Exists(_dolphinToolPath))
             {
                 LogMessage($"{dolphinToolExeName} found in the application directory.");
             }
-
-            LogMessage("SharpCompress library loaded for archive extraction.");
+            else
+            {
+                LogMessage(
+                    $"WARNING: {dolphinToolExeName} was not found. The native RVZSharp engine handles all supported operations; the DolphinTool fallback is unavailable.");
+            }
+        }
+        catch (PlatformNotSupportedException ex)
+        {
+            _dolphinToolPath = null;
+            LogMessage(
+                $"WARNING: Unsupported platform architecture for DolphinTool ({ex.Message}). The native RVZSharp engine will be used.");
         }
 
+        LogMessage("SharpCompress library loaded for archive extraction.");
         LogMessage("");
     }
 
@@ -617,17 +590,10 @@ public partial class MainWindow : Window, IDisposable
                 return;
             }
 
-            if (!_dependenciesOk || string.IsNullOrEmpty(_dolphinToolPath))
-            {
-                var exeName = GetDolphinToolExecutableName();
-                LogMessage("Error: Critical dependencies are missing. Cannot start conversion.");
-                await ShowErrorAsync($"A required file (like {exeName}) is missing. Please check the application directory.");
-                return;
-            }
-
             var inputFolder = InputFolderTextBox.Text;
             var outputFolder = OutputFolderTextBox.Text;
             var deleteFiles = DeleteFilesCheckBox.IsChecked ?? false;
+            var scrub = ScrubCheckBox.IsChecked ?? false;
 
             // Update compression settings from UI
             UpdateBlockSizeFromSelection();
@@ -708,12 +674,18 @@ public partial class MainWindow : Window, IDisposable
 
             LogMessage("Starting batch conversion process...");
             UpdateStatusBar("Starting conversion...");
-            LogMessage($"Using DolphinTool: {_dolphinToolPath}");
+            if (!string.IsNullOrEmpty(_dolphinToolPath))
+            {
+                LogMessage($"Using DolphinTool fallback: {_dolphinToolPath}");
+            }
             LogMessage($"Input folder: {inputFolder}");
             LogMessage($"Output folder: {outputFolder}");
             LogMessage($"Delete original files: {deleteFiles}");
+            LogMessage($"Scrub non-game Wii partitions: {scrub}");
             LogMessage(
                 $"RVZ Compression: Method={_rvzCompressionMethod}, Level={_rvzCompressionLevel}, Block Size={_rvzBlockSize}");
+
+            var fileProgress = new Progress<double>(UpdateFileProgress);
 
             // Wrap the whole job in a task that we can await on exit
             var wasCancelled = false;
@@ -721,8 +693,8 @@ public partial class MainWindow : Window, IDisposable
             {
                 _runningTask =
                     Task.Run(
-                        () => PerformBatchConversionAsync(_dolphinToolPath, selectedFiles, outputFolder!, deleteFiles,
-                            token), token);
+                        () => PerformBatchConversionAsync(_dolphinToolPath ?? string.Empty, selectedFiles, outputFolder!, deleteFiles,
+                            token, scrub, fileProgress), token);
 
                 await _runningTask.ConfigureAwait(false); // resume on thread pool, not UI thread
             }
@@ -798,6 +770,7 @@ public partial class MainWindow : Window, IDisposable
                 BrowseInputButton.IsEnabled = enabled;
                 BrowseOutputButton.IsEnabled = enabled;
                 DeleteFilesCheckBox.IsEnabled = enabled;
+                ScrubCheckBox.IsEnabled = enabled;
                 StartConversionButton.IsEnabled = enabled;
 
                 VerifyFolderTextBox.IsEnabled = enabled;
@@ -948,7 +921,7 @@ public partial class MainWindow : Window, IDisposable
     }
 
     private async Task PerformBatchConversionAsync(string dolphinToolPath, string[] files, string outputFolder,
-        bool deleteFiles, CancellationToken token)
+        bool deleteFiles, CancellationToken token, bool scrub = false, IProgress<double>? fileProgress = null)
     {
         try
         {
@@ -1016,7 +989,9 @@ public partial class MainWindow : Window, IDisposable
                         _failureCount += count;
                     }
                 },
-                token);
+                token,
+                scrub,
+                fileProgress);
         }
         catch (OperationCanceledException)
         {
@@ -1293,6 +1268,7 @@ public partial class MainWindow : Window, IDisposable
         }
 
         _updateService.Dispose();
+        _explorerSession?.Dispose();
         _operationTimer.Stop();
         GC.SuppressFinalize(this);
     }
@@ -1431,14 +1407,6 @@ public partial class MainWindow : Window, IDisposable
                 return;
             }
 
-            if (!_dependenciesOk || string.IsNullOrEmpty(_dolphinToolPath))
-            {
-                var exeName = GetDolphinToolExecutableName();
-                LogMessage("Error: Critical dependencies are missing. Cannot start verification.");
-                await ShowErrorAsync($"A required file (like {exeName}) is missing. Please check the application directory.");
-                return;
-            }
-
             var verifyFolder = VerifyFolderTextBox.Text;
 
             _moveFailedFiles = MoveFailedCheckBox.IsChecked ?? false;
@@ -1484,17 +1452,21 @@ public partial class MainWindow : Window, IDisposable
 
             LogMessage("Starting batch verification process...");
             UpdateStatusBar("Starting verification...");
-            LogMessage($"Using DolphinTool: {_dolphinToolPath}");
+            if (!string.IsNullOrEmpty(_dolphinToolPath))
+            {
+                LogMessage($"Using DolphinTool fallback: {_dolphinToolPath}");
+            }
 
             LogMessage($"Verification folder: {verifyFolder}");
             if (_moveFailedFiles) LogMessage("Failed files will be moved to '_Failed' subfolder.");
             if (_moveSuccessFiles) LogMessage("Successful files will be moved to '_Success' subfolder.");
 
             var wasCancelled = false;
+            var fileProgress = new Progress<double>(UpdateFileProgress);
             _runningTask =
                 Task.Run(
-                    () => PerformBatchVerificationAsync(_dolphinToolPath, selectedFiles, _moveFailedFiles,
-                        _moveSuccessFiles, token), token);
+                    () => PerformBatchVerificationAsync(_dolphinToolPath ?? string.Empty, selectedFiles, _moveFailedFiles,
+                        _moveSuccessFiles, token, fileProgress), token);
 
             try
             {
@@ -1543,7 +1515,7 @@ public partial class MainWindow : Window, IDisposable
     }
 
     private async Task PerformBatchVerificationAsync(string dolphinToolPath, string[] files, bool moveFailed,
-        bool moveSuccess, CancellationToken token)
+        bool moveSuccess, CancellationToken token, IProgress<double>? fileProgress = null)
     {
         try
         {
@@ -1608,7 +1580,8 @@ public partial class MainWindow : Window, IDisposable
                         _failureCount += count;
                     }
                 },
-                token);
+                token,
+                fileProgress);
         }
         catch (OperationCanceledException)
         {
@@ -1765,6 +1738,30 @@ public partial class MainWindow : Window, IDisposable
                 var percentage = total == 0 ? 0 : (double)current / total * 100;
                 StatusBarText.Text =
                     $"{operationVerb} file {current} of {total}: {currentFileName} ({percentage:F1}%)";
+            });
+        }
+        catch (TaskCanceledException)
+        {
+            // Expected during application shutdown
+        }
+        catch (InvalidOperationException)
+        {
+            // Dispatcher is shutting down
+        }
+    }
+
+    /// <summary>
+    /// Updates the per-file progress bar from a progress report (fraction in [0, 1]).
+    /// </summary>
+    private void UpdateFileProgress(double fraction)
+    {
+        try
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                FileProgressBar.IsIndeterminate = false;
+                FileProgressBar.Maximum = 100;
+                FileProgressBar.Value = Math.Clamp(fraction * 100, 0, 100);
             });
         }
         catch (TaskCanceledException)
@@ -2017,14 +2014,6 @@ public partial class MainWindow : Window, IDisposable
                 return;
             }
 
-            if (!_dependenciesOk || string.IsNullOrEmpty(_dolphinToolPath))
-            {
-                var exeName = GetDolphinToolExecutableName();
-                LogMessage("Error: Critical dependencies are missing. Cannot start extraction.");
-                await ShowErrorAsync($"A required file (like {exeName}) is missing. Please check the application directory.");
-                return;
-            }
-
             var inputFolder = ExtractInputFolderTextBox.Text;
             var outputFolder = ExtractOutputFolderTextBox.Text;
             var deleteFiles = DeleteExtractedFilesCheckBox.IsChecked ?? false;
@@ -2107,19 +2096,23 @@ public partial class MainWindow : Window, IDisposable
 
             LogMessage("Starting batch extraction process...");
             UpdateStatusBar("Starting extraction...");
-            LogMessage($"Using DolphinTool: {_dolphinToolPath}");
+            if (!string.IsNullOrEmpty(_dolphinToolPath))
+            {
+                LogMessage($"Using DolphinTool fallback: {_dolphinToolPath}");
+            }
             LogMessage($"Input folder: {inputFolder}");
             LogMessage($"Output folder: {outputFolder}");
             LogMessage($"Output format: {outputFormat.ToUpperInvariant()}");
             LogMessage($"Delete original files: {deleteFiles}");
 
             var wasCancelled = false;
+            var fileProgress = new Progress<double>(UpdateFileProgress);
             try
             {
                 _runningTask =
                     Task.Run(
-                        () => PerformBatchExtractionAsync(_dolphinToolPath, selectedFiles, outputFolder!, deleteFiles,
-                            outputFormat, token), token);
+                        () => PerformBatchExtractionAsync(_dolphinToolPath ?? string.Empty, selectedFiles, outputFolder!, deleteFiles,
+                            outputFormat, token, fileProgress), token);
 
                 await _runningTask.ConfigureAwait(false);
             }
@@ -2158,7 +2151,7 @@ public partial class MainWindow : Window, IDisposable
     }
 
     private async Task PerformBatchExtractionAsync(string dolphinToolPath, string[] files, string outputFolder,
-        bool deleteFiles, string outputFormat, CancellationToken token)
+        bool deleteFiles, string outputFormat, CancellationToken token, IProgress<double>? fileProgress = null)
     {
         try
         {
@@ -2224,7 +2217,8 @@ public partial class MainWindow : Window, IDisposable
                         _failureCount += count;
                     }
                 },
-                token);
+                token,
+                fileProgress);
         }
         catch (OperationCanceledException)
         {
@@ -2473,6 +2467,337 @@ public partial class MainWindow : Window, IDisposable
             _ = ShowErrorAsync($"Error adding files: {ex.Message}");
             _ = ReportBugAsync("Error adding individual files to list", ex);
         }
+    }
+
+    #endregion
+
+    #region Explorer Tab Event Handlers
+
+    private async void BrowseExplorerImageButton_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var patterns = FileService.GetExplorerExtensions().Select(static ext => "*" + ext).ToList();
+            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Select a disc image to explore",
+                AllowMultiple = false,
+                FileTypeFilter =
+                [
+                    new FilePickerFileType("Disc images") { Patterns = patterns },
+                    FilePickerFileTypes.All
+                ]
+            });
+
+            var path = files.Count > 0 ? files[0].TryGetLocalPath() : null;
+            if (string.IsNullOrEmpty(path)) return;
+
+            ExplorerImageTextBox.Text = path;
+            ExplorerStatusText.Text = $"Selected {Path.GetFileName(path)}. Click Open to browse its contents.";
+            LogMessage($"Explorer image selected: {path}");
+        }
+        catch (Exception ex)
+        {
+            LogMessage($"Error selecting explorer image: {ex.Message}");
+            await ReportBugAsync("Error selecting explorer image", ex);
+        }
+    }
+
+    private async void OpenExplorerImageButton_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var path = ExplorerImageTextBox.Text;
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            {
+                ExplorerStatusText.Text = "Select a disc image file first.";
+                return;
+            }
+
+            await OpenExplorerImageAsync(path);
+        }
+        catch (Exception ex)
+        {
+            await ReportBugAsync("Error opening explorer image", ex);
+        }
+    }
+
+    private async void RefreshExplorerButton_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (_explorerSession is null) return;
+
+            await OpenExplorerImageAsync(_explorerSession.ImagePath, _explorerSession.PartitionIndex);
+        }
+        catch (Exception ex)
+        {
+            await ReportBugAsync("Error refreshing explorer image", ex);
+        }
+    }
+
+    private void CloseExplorerButton_Click(object? sender, RoutedEventArgs e)
+    {
+        CloseExplorerImage();
+    }
+
+    private async Task OpenExplorerImageAsync(string path, int partitionIndex = 0)
+    {
+        if (_isExplorerBusy) return;
+
+        SetExplorerBusy(true);
+        ExplorerStatusText.Text = $"Opening {Path.GetFileName(path)}...";
+
+        try
+        {
+            var session = await Task.Run(() => _discExplorerService.TryOpen(path, partitionIndex));
+            if (session is null)
+            {
+                ExplorerStatusText.Text = $"Could not open {Path.GetFileName(path)}. See the log for details.";
+                return;
+            }
+
+            _explorerSession?.Dispose();
+            _explorerSession = session;
+            ExplorerImageTextBox.Text = path;
+            PopulateExplorerTree();
+            UpdateExplorerPartitionSelector();
+            ExplorerVolumeText.Text = session.VolumeSummary;
+            UpdateExplorerSelection(null);
+
+            var partitionNote = session.PartitionCount > 0
+                ? $", partition {DiscExplorerSession.PartitionName(session.Partitions[session.PartitionIndex].Type)}"
+                : string.Empty;
+            ExplorerStatusText.Text = $"Open: {session.Root.Children.Count} root entries{partitionNote}.";
+            LogMessage($"Explorer opened: {path}");
+        }
+        catch (Exception ex)
+        {
+            LogMessage($"Explorer error: {ex.Message}");
+            ExplorerStatusText.Text = $"Open failed: {ex.Message}";
+            await ReportBugAsync("Error opening explorer image", ex);
+        }
+        finally
+        {
+            SetExplorerBusy(false);
+        }
+    }
+
+    private async void ExplorerPartitionComboBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        try
+        {
+            var session = _explorerSession;
+            var index = ExplorerPartitionComboBox.SelectedIndex;
+            if (session is null || _isExplorerBusy || index < 0 || index == session.PartitionIndex) return;
+
+            SetExplorerBusy(true);
+            var partitionName = DiscExplorerSession.PartitionName(session.Partitions[index].Type);
+            ExplorerStatusText.Text = $"Switching to partition {partitionName}...";
+
+            try
+            {
+                await Task.Run(() => session.SelectPartition(index));
+                PopulateExplorerTree();
+                ExplorerVolumeText.Text = session.VolumeSummary;
+                UpdateExplorerSelection(null);
+                ExplorerStatusText.Text =
+                    $"Open: {session.Root.Children.Count} root entries in partition {partitionName}.";
+            }
+            finally
+            {
+                SetExplorerBusy(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            await ReportBugAsync("Error switching explorer partition", ex);
+        }
+    }
+
+    private void ExplorerTreeView_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        UpdateExplorerSelection(ExplorerTreeView.SelectedItem as Models.ExplorerTreeNode);
+    }
+
+    private async void CopyOutExplorerButton_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var session = _explorerSession;
+            if (session is null || _isExplorerBusy ||
+                ExplorerTreeView.SelectedItem is not Models.ExplorerTreeNode { IsDummy: false } node ||
+                node.Data is null)
+            {
+                return;
+            }
+
+            string? destination;
+            if (node.IsDirectory)
+            {
+                var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+                {
+                    Title = $"Copy '{node.Name}' to folder",
+                    AllowMultiple = false
+                });
+                var folder = folders.Count > 0 ? folders[0].TryGetLocalPath() : null;
+                if (string.IsNullOrEmpty(folder)) return;
+
+                destination = Path.Combine(folder, node.Name);
+            }
+            else
+            {
+                var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+                {
+                    Title = $"Copy '{node.Name}' out",
+                    SuggestedFileName = node.Name,
+                    DefaultExtension = Path.GetExtension(node.Name).TrimStart('.')
+                });
+                destination = file?.TryGetLocalPath();
+                if (string.IsNullOrEmpty(destination)) return;
+            }
+
+            var data = node.Data;
+            SetExplorerBusy(true);
+            ExplorerStatusText.Text = $"Copying {node.FullPath}...";
+
+            try
+            {
+                await Task.Run(() => session.CopyNodeTo(data, destination, CancellationToken.None));
+                ExplorerStatusText.Text = $"Copied to {destination}.";
+                LogMessage($"Explorer copy out: {node.FullPath} -> {destination}");
+            }
+            finally
+            {
+                SetExplorerBusy(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            ExplorerStatusText.Text = $"Copy failed: {ex.Message}";
+            LogMessage($"Explorer copy failed: {ex.Message}");
+            await ReportBugAsync("Error copying explorer entry", ex);
+        }
+    }
+
+    private async void HashExplorerButton_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var session = _explorerSession;
+            if (session is null || _isExplorerBusy ||
+                ExplorerTreeView.SelectedItem is not Models.ExplorerTreeNode { IsDummy: false, IsDirectory: false } node ||
+                node.Data is null)
+            {
+                return;
+            }
+
+            var data = node.Data;
+            SetExplorerBusy(true);
+            ExplorerStatusText.Text = $"Hashing {node.FullPath}...";
+
+            try
+            {
+                var hex = await Task.Run(() => session.ComputeSha256(data, CancellationToken.None));
+                ExplorerHashText.Text = $"SHA-256({node.FullPath}) = {hex}";
+                ExplorerStatusText.Text = "Hash complete.";
+                LogMessage($"Explorer hash: {node.FullPath} = {hex}");
+            }
+            finally
+            {
+                SetExplorerBusy(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            ExplorerStatusText.Text = $"Hash failed: {ex.Message}";
+            LogMessage($"Explorer hash failed: {ex.Message}");
+            await ReportBugAsync("Error hashing explorer entry", ex);
+        }
+    }
+
+    private void CloseExplorerImage()
+    {
+        _explorerSession?.Dispose();
+        _explorerSession = null;
+        _explorerRoots.Clear();
+        ExplorerVolumeText.Text = "No image open.";
+        ExplorerPartitionPanel.IsVisible = false;
+        ExplorerPartitionComboBox.ItemsSource = null;
+        ExplorerHashText.Text = string.Empty;
+        UpdateExplorerSelection(null);
+        SetExplorerBusy(false);
+        ExplorerStatusText.Text = "Image closed.";
+        LogMessage("Explorer image closed.");
+    }
+
+    private void PopulateExplorerTree()
+    {
+        _explorerRoots.Clear();
+        if (_explorerSession is null) return;
+
+        foreach (var child in _explorerSession.ListChildren(null))
+        {
+            _explorerRoots.Add(new Models.ExplorerTreeNode(child));
+        }
+    }
+
+    private void UpdateExplorerPartitionSelector()
+    {
+        if (_explorerSession is { PartitionCount: > 1 } session)
+        {
+            ExplorerPartitionComboBox.ItemsSource = session.Partitions
+                .Select(partition => $"{DiscExplorerSession.PartitionName(partition.Type)} (0x{partition.Offset:X})")
+                .ToList();
+            ExplorerPartitionComboBox.SelectedIndex = session.PartitionIndex;
+            ExplorerPartitionPanel.IsVisible = true;
+        }
+        else
+        {
+            ExplorerPartitionComboBox.ItemsSource = null;
+            ExplorerPartitionPanel.IsVisible = false;
+        }
+    }
+
+    private void UpdateExplorerSelection(Models.ExplorerTreeNode? node)
+    {
+        ExplorerHashText.Text = string.Empty;
+
+        if (node is null || node.IsDummy)
+        {
+            ExplorerDetailsTextBox.Text = "Select an entry in the tree.";
+            CopyOutExplorerButton.IsEnabled = false;
+            HashExplorerButton.IsEnabled = false;
+            return;
+        }
+
+        var displayPath = string.IsNullOrEmpty(node.FullPath) ? "/" : "/" + node.FullPath;
+        ExplorerDetailsTextBox.Text =
+            $"Path: {displayPath}\n" +
+            $"Type: {(node.IsDirectory ? "directory" : "file")}\n" +
+            $"Size: {node.DisplaySize} ({node.Size:N0} bytes)\n" +
+            $"Offset: 0x{node.Offset:X}";
+
+        CopyOutExplorerButton.IsEnabled = !_isExplorerBusy;
+        HashExplorerButton.IsEnabled = !_isExplorerBusy && !node.IsDirectory;
+    }
+
+    private void SetExplorerBusy(bool busy)
+    {
+        _isExplorerBusy = busy;
+
+        var hasSession = _explorerSession is not null;
+        var hasNode = ExplorerTreeView.SelectedItem is Models.ExplorerTreeNode { IsDummy: false };
+        var isFile = ExplorerTreeView.SelectedItem is Models.ExplorerTreeNode { IsDummy: false, IsDirectory: false };
+
+        BrowseExplorerImageButton.IsEnabled = !busy;
+        OpenExplorerImageButton.IsEnabled = !busy;
+        RefreshExplorerButton.IsEnabled = !busy && hasSession;
+        CloseExplorerButton.IsEnabled = !busy && hasSession;
+        ExplorerPartitionComboBox.IsEnabled = !busy;
+        ExplorerTreeView.IsEnabled = !busy;
+        CopyOutExplorerButton.IsEnabled = !busy && hasNode;
+        HashExplorerButton.IsEnabled = !busy && isFile;
     }
 
     #endregion

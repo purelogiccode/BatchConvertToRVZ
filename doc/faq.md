@@ -3,7 +3,7 @@
 ### What is RVZStudio?
 
 A cross-platform desktop application that batch converts GameCube and Wii disc images to the RVZ
-format, verifies RVZ integrity, and extracts RVZ files back to ISO, WBFS, GCZ or WIA.
+format, verifies RVZ integrity, and extracts RVZ files back to ISO, WBFS, GCZ, WIA, CISO or TGC.
 
 ### Which platforms are supported?
 
@@ -16,17 +16,24 @@ Yes. It is open source under the GNU General Public License v3.0 (see [LICENSE.t
 
 ### Do I need Dolphin or DolphinTool installed separately?
 
-No. Official release packages bundle `DolphinTool` (and `7za` as an archive fallback). RVZStudio
-looks for them in its own folder.
+No. RVZStudio's primary engine (RVZSharp) is built in. Official release packages also bundle
+`DolphinTool` as an optional fallback (and `7za` as an archive fallback); RVZStudio looks for them
+in its own folder and works without them.
 
 ### Which input formats can I convert?
 
-`.iso`, `.gcm`, `.wbfs`, `.gcz`, `.wia`, `.nkit.iso` and the archives `.zip`, `.7z`, `.rar`
-containing any of those.
+`.iso`, `.gcm`, `.wbfs`, `.gcz`, `.wia`, `.ciso`, `.wbi`, `.tgc`, `.nfs`, `.nkit.iso` and the
+archives `.zip`, `.7z`, `.rar` containing any of those.
 
 ### Can I convert RVZ back to ISO?
 
-Yes — use the **Extract from RVZ** tab. Supported outputs are ISO, WBFS, GCZ and WIA.
+Yes — use the **Extract from RVZ** tab. Supported outputs are ISO, WBFS, GCZ, WIA, CISO and TGC.
+
+### Can I browse the files inside a disc image?
+
+Yes — the **Explorer** tab opens any supported image (ISO, RVZ, WIA, GCZ, CISO, WBFS, TGC, NFS)
+and shows its file system. You can expand folders, copy individual files or whole folders out,
+and compute per-file SHA-256 hashes without converting the image.
 
 ### What compression should I use?
 

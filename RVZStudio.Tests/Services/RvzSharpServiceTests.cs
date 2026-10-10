@@ -119,7 +119,7 @@ public class RvzSharpServiceTests : IDisposable
         var content = CreateDiscImageWithValidHeader(350_000);
         File.WriteAllBytes(inputFile, content);
 
-        var result = _service.TryEncode(inputFile, outputFile, "zstd", 5, 131072, CancellationToken.None);
+        var result = _service.TryEncode(inputFile, outputFile, "zstd", 5, 131072, scrub: false, progress: null, CancellationToken.None);
 
         Assert.True(result);
         Assert.True(File.Exists(outputFile));
@@ -135,7 +135,7 @@ public class RvzSharpServiceTests : IDisposable
         new Random(42).NextBytes(content);
         File.WriteAllBytes(inputFile, content);
 
-        var result = _service.TryEncode(inputFile, outputFile, "zstd", 5, 131072, CancellationToken.None);
+        var result = _service.TryEncode(inputFile, outputFile, "zstd", 5, 131072, scrub: false, progress: null, CancellationToken.None);
 
         Assert.False(result);
         Assert.False(File.Exists(outputFile));
@@ -156,7 +156,7 @@ public class RvzSharpServiceTests : IDisposable
         // A .wbfs file without the "WBFS" magic is not a WBFS container; without this
         // check the library would treat it as a plain ISO (and, since 1.0.1, reject it
         // at write time for lacking a disc header). Either way it must not be encoded.
-        var result = _service.TryEncode(inputFile, outputFile, "zstd", 5, 131072, CancellationToken.None);
+        var result = _service.TryEncode(inputFile, outputFile, "zstd", 5, 131072, scrub: false, progress: null, CancellationToken.None);
 
         Assert.False(result);
         Assert.False(File.Exists(outputFile));
@@ -183,13 +183,14 @@ public class RvzSharpServiceTests : IDisposable
 
         // A file with the matching container magic is handed to the library, which
         // either decodes it or fails with a library error (never a pre-validation skip).
-        var result = _service.TryEncode(inputFile, outputFile, "zstd", 5, 131072, CancellationToken.None);
+        var result = _service.TryEncode(inputFile, outputFile, "zstd", 5, 131072, scrub: false, progress: null, CancellationToken.None);
 
         Assert.DoesNotContain(_logMessages, static m => m.Contains("not a recognized disc image"));
 
         // Outcomes are format-dependent: WBFS headers are validated strictly (failure),
         // while other headers may parse leniently (success). Both are acceptable.
-        Assert.True(result || _logMessages.Any(static m => m.Contains("RVZSharp library failed")));
+        Assert.True(result || _logMessages.Any(static m =>
+            m.Contains("RVZSharp library failed") || m.Contains("RVZSharp could not encode")));
     }
 
     private static byte[] CreateDiscImageWithValidHeader(int size)
@@ -210,7 +211,7 @@ public class RvzSharpServiceTests : IDisposable
         var outputFile = Path.Combine(_tempDir, "game.rvz");
         File.WriteAllBytes(inputFile, []);
 
-        var result = _service.TryEncode(inputFile, outputFile, "zstd", 5, 131072, CancellationToken.None);
+        var result = _service.TryEncode(inputFile, outputFile, "zstd", 5, 131072, scrub: false, progress: null, CancellationToken.None);
 
         Assert.False(result);
         Assert.False(File.Exists(outputFile));
@@ -218,16 +219,110 @@ public class RvzSharpServiceTests : IDisposable
     }
 
     [Fact]
-    public void TryDecodeToIsoFailsAndDeletesPartialOutputOnGarbageInput()
+    public void TryDecodeFailsAndDeletesPartialOutputOnGarbageInput()
     {
         var inputFile = Path.Combine(_tempDir, "game.rvz");
         var outputFile = Path.Combine(_tempDir, "game.iso");
         File.WriteAllBytes(inputFile, [0x00, 0x01, 0x02, 0x03, 0x04]);
 
-        var result = _service.TryDecodeToIso(inputFile, outputFile, CancellationToken.None);
+        var result = _service.TryDecode(inputFile, outputFile, "iso", scrub: false, progress: null,
+            CancellationToken.None);
 
         Assert.False(result);
         Assert.False(File.Exists(outputFile));
         Assert.Contains(_logMessages, static m => m.Contains("Falling back to DolphinTool"));
+    }
+
+    [Theory]
+    [InlineData("game.ciso")]
+    [InlineData("game.wbi")]
+    [InlineData("game.tgc")]
+    [InlineData("game.nfs")]
+    public void CanEncodeReturnsTrueForNewLegacyInputs(string fileName)
+    {
+        var inputFile = Path.Combine(_tempDir, fileName);
+
+        Assert.True(RvzSharpService.CanEncode(inputFile, "zstd"));
+    }
+
+    [Theory]
+    [InlineData("iso")]
+    [InlineData("wia")]
+    [InlineData("gcz")]
+    [InlineData("ciso")]
+    public void TryDecodeWritesNativeFormatsForGameCubeDisc(string outputFormat)
+    {
+        var rvzFile = CreateRvzFromSyntheticDisc();
+        var outputFile = Path.Combine(_tempDir, $"game.{outputFormat}");
+
+        var result = _service.TryDecode(rvzFile, outputFile, outputFormat, scrub: false, progress: null,
+            CancellationToken.None);
+
+        Assert.True(result);
+        Assert.True(File.Exists(outputFile));
+        Assert.Contains(_logMessages,
+            m => m.Contains($"Converted to {outputFormat.ToUpperInvariant()} using RVZSharp"));
+    }
+
+    [Fact]
+    public void TryDecodeWbfsOnGameCubeDiscFailsGracefully()
+    {
+        var rvzFile = CreateRvzFromSyntheticDisc();
+        var outputFile = Path.Combine(_tempDir, "game.wbfs");
+
+        var result = _service.TryDecode(rvzFile, outputFile, "wbfs", scrub: false, progress: null,
+            CancellationToken.None);
+
+        Assert.False(result);
+        Assert.False(File.Exists(outputFile));
+        Assert.Contains(_logMessages, static m => m.Contains("Falling back to DolphinTool"));
+    }
+
+    [Fact]
+    public void TryVerifyReturnsTrueForValidDiscAndLogsHashes()
+    {
+        var rvzFile = CreateRvzFromSyntheticDisc();
+
+        var result = _service.TryVerify(rvzFile, progress: null, CancellationToken.None);
+
+        Assert.True(result);
+        Assert.Contains(_logMessages, static m => m.Contains("Verified") && m.Contains("GameCube"));
+        Assert.Contains(_logMessages, static m => m.Contains("Hashes for") && m.Contains("SHA1="));
+    }
+
+    [Fact]
+    public void TryVerifyReturnsFalseForNonDiscImage()
+    {
+        var inputFile = Path.Combine(_tempDir, "game.rvz");
+        File.WriteAllBytes(inputFile, [0x00, 0x01, 0x02, 0x03, 0x04]);
+
+        var result = _service.TryVerify(inputFile, progress: null, CancellationToken.None);
+
+        Assert.False(result);
+        Assert.Contains(_logMessages, static m => m.Contains("not a GameCube/Wii disc image"));
+    }
+
+    [Fact]
+    public void TryEncodeWithScrubSucceedsOnGameCubeDisc()
+    {
+        var inputFile = Path.Combine(_tempDir, "game.iso");
+        var outputFile = Path.Combine(_tempDir, "game.rvz");
+        File.WriteAllBytes(inputFile, CreateDiscImageWithValidHeader(350_000));
+
+        var result = _service.TryEncode(inputFile, outputFile, "zstd", 5, 131072, scrub: true, progress: null,
+            CancellationToken.None);
+
+        Assert.True(result);
+        Assert.True(File.Exists(outputFile));
+    }
+
+    private string CreateRvzFromSyntheticDisc()
+    {
+        var inputFile = Path.Combine(_tempDir, $"game_{Path.GetRandomFileName()}.iso");
+        var outputFile = Path.Combine(_tempDir, $"game_{Path.GetRandomFileName()}.rvz");
+        File.WriteAllBytes(inputFile, CreateDiscImageWithValidHeader(350_000));
+        Assert.True(_service.TryEncode(inputFile, outputFile, "zstd", 5, 131072, scrub: false, progress: null,
+            CancellationToken.None));
+        return outputFile;
     }
 }

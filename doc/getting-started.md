@@ -9,10 +9,11 @@ This page covers everything you need to install RVZStudio and convert your first
 | Operating system | Windows 10 or later, a modern 64-bit Linux distribution, or macOS 11 or later |
 | Architecture | x64 or ARM64 |
 | Runtime | [.NET 10.0 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) — **not required** for the self-contained release builds |
-| Helper tools | `DolphinTool` and `7za` binaries (bundled with releases) |
+| Helper tools | Optional: `DolphinTool` (fallback engine) and `7za` (archive fallback), bundled with releases |
 
-> RVZStudio relies on **DolphinTool** from the [Dolphin Emulator project](https://dolphin-emu.org/)
-> as a fallback conversion/verification engine and on **7za** (7-Zip) as a fallback archive
+> RVZStudio's primary engine is the built-in **RVZSharp** library (pure managed code). **DolphinTool**
+> from the [Dolphin Emulator project](https://dolphin-emu.org/) is used as a fallback
+> conversion/verification engine when available, and **7za** (7-Zip) is the fallback archive
 > extractor. Both are shipped with the official release packages.
 
 ### Helper executable names
@@ -76,9 +77,10 @@ RVZStudio locates the helper tools next to the application binary. The expected 
 
 When RVZStudio starts it performs three checks:
 
-1. **Dependencies** — it verifies that the platform-specific `DolphinTool` executable exists in
-   the application folder. The log viewer reports the result. If the file is missing, the action
-   buttons are disabled and an error dialog explains what to download.
+1. **Dependencies** — it checks whether the platform-specific `DolphinTool` executable exists in
+   the application folder and reports the result. DolphinTool is optional: when it is missing the
+   native RVZSharp engine still handles conversion, extraction and verification, and the log notes
+   that the fallback is unavailable.
 2. **Update check** — the application queries GitHub for the latest release and logs whether a
    newer version is available.
 3. **Usage statistics** — an anonymous launch statistic is sent to the developer's stats service.

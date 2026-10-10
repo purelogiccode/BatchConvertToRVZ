@@ -30,7 +30,7 @@ Full documentation lives in the [`doc/`](doc/README.md) folder:
 
 ## Overview
 
-RVZStudio is a comprehensive desktop application built with **Avalonia UI** that provides a user-friendly interface for converting multiple GameCube and Wii game files to the RVZ format. It uses **DolphinTool** from the Dolphin Emulator project for conversions and verification, while providing advanced features like batch processing and archive extraction.
+RVZStudio is a comprehensive desktop application built with **Avalonia UI** that provides a user-friendly interface for converting multiple GameCube and Wii game files to the RVZ format. The built-in **RVZSharp** library is the primary engine for conversion, extraction and verification, with **DolphinTool** from the Dolphin Emulator project as a fallback, while providing advanced features like batch processing and archive extraction.
 
 The application ships for **Windows, Linux and macOS** on both **x64 and ARM64** architectures.
 
@@ -38,7 +38,7 @@ The application ships for **Windows, Linux and macOS** on both **x64 and ARM64**
 
 ### Conversion Features
 - **Batch Processing**: Convert multiple files in a single operation.
-- **Supported Input Formats**: Handles GameCube and Wii disc images (`.iso`, `.gcm`, `.wbfs`, `.nkit.iso`) and archives containing them (`.zip`, `.7z`, `.rar`).
+- **Supported Input Formats**: Handles GameCube and Wii disc images (`.iso`, `.gcm`, `.wbfs`, `.gcz`, `.wia`, `.ciso`, `.wbi`, `.tgc`, `.nfs`, `.nkit.iso`) and archives containing them (`.zip`, `.7z`, `.rar`).
 - **Archive Extraction**: Automatically extracts and processes game files from ZIP, 7Z, and RAR archives using SharpCompress.
 - **Configurable Compression**: Customize compression method, level, and block size for optimal results.
 
@@ -47,8 +47,15 @@ The application ships for **Windows, Linux and macOS** on both **x64 and ARM64**
 - **Robust Parsing**: Advanced logic for handling compound extensions like `.nkit.iso` and localized number formats.
 
 ### Verification Features
-- **RVZ Integrity Verification**: Verify the integrity of existing RVZ files using DolphinTool.
-- **Real-time Feedback**: Live logging of DolphinTool verification output (not just at the end).
+- **RVZ Integrity Verification**: Verify the integrity of existing RVZ files natively with the RVZSharp volume verifier (partition headers, TMD/H3 tables and the h0/h1/h2/h3 hash trees), with DolphinTool as a fallback. CRC-32, MD5 and SHA-1 hashes of the decoded image are logged for every verified file.
+- **Real-time Feedback**: Live logging of verification progress and results (not just at the end).
+
+### Explorer Features
+- **Disc Explorer**: Browse the file system of any supported disc image (ISO, RVZ, WIA, GCZ, CISO, WBFS, TGC, NFS) in-process without extracting it.
+- **Tree Navigation**: Expand folders and select entries to see their path, type, size and data offset.
+- **Copy Out**: Extract the selected file or a whole folder from the image.
+- **Per-File Hashing**: Compute the SHA-256 of any file inside the image.
+- **Wii Partitions**: Discs with multiple partitions (game/update/channel) expose a partition selector.
 - **Batch Verification**: Check multiple RVZ files in a single operation.
 
 - **File Organization**: Automatically move verified files to `_Success` or `_Failed` subfolders.
@@ -65,8 +72,8 @@ The application ships for **Windows, Linux and macOS** on both **x64 and ARM64**
 - **Auto-Update Checking**: Accurate version comparison between GitHub release tags and assembly versions with seamless GitHub integration.
 
 ### Technical Features
-- **Native RVZ Engine**: Built-in `RVZSharp` library encodes and decodes RVZ files natively (100% managed codecs), with automatic fallback to `DolphinTool` whenever the library fails.
-- **Library Failure Reporting**: Every `RVZSharp` failure is automatically reported to the Bug Report API so the library can be improved over time.
+- **Native RVZ Engine**: Built-in `RVZSharp` library encodes, decodes and verifies disc images natively (100% managed codecs), with automatic fallback to `DolphinTool` whenever the library fails or DolphinTool is required.
+- **Library Failure Reporting**: Unexpected `RVZSharp` failures are automatically reported to the Bug Report API so the library can be improved over time; expected user-file failures are logged without bug-report noise.
 - **Asynchronous Architecture**: Fully async/await implementation to keep the UI responsive during intensive I/O and processing.
 - **Cross-Architecture Support**: Native support for both x64 and ARM64 Windows systems.
 - **Structured Logging**: Serilog-based logging with rolling daily log files, on-screen log viewer, and automatic bug reporting via custom sinks.
@@ -87,6 +94,7 @@ The application follows a modular architecture with clear separation of concerns
 | `ConversionService` | Core conversion logic, progress tracking, cancellation support |
 | `VerificationService` | RVZ integrity verification with real-time output |
 | `ExtractionService` | Archive extraction (ZIP, 7Z, RAR) with cancellation support |
+| `DiscExplorerService` | Disc file-system browsing, copy-out and hashing via the RVZSharp FST parser |
 | `FileService` | File scanning, filtering, and output path management |
 | `RvzSharpService` | Native RVZ encode/decode via the RVZSharp library, with DolphinTool fallback |
 | `UpdateService` | GitHub API integration for checking application updates |
@@ -106,41 +114,54 @@ The application follows a modular architecture with clear separation of concerns
 ## Conversion Engine
 
 RVZStudio uses **RVZSharp** — a pure managed C# library — as its primary engine for
-converting disc images to RVZ (encode) and RVZ back to ISO (decode):
+converting disc images to RVZ (encode), decoding RVZ/WIA to any output format, and verifying
+RVZ integrity:
 
-- **Encode**: `RVZSharp` encodes ISO/GCM/WBFS/GCZ/WIA images natively with the selected
-  compression method (zstd, bzip2, lzma, lzma2), level and block size. The `zlib` and `lz4`
-  methods are DolphinTool-only and always use the external tool.
-- **Decode**: `RVZSharp` decodes RVZ files back to the original ISO byte-for-byte. Other output
-  formats (wbfs, gcz, wia) always use DolphinTool.
+- **Encode**: `RVZSharp` encodes ISO/GCM/WBFS/GCZ/WIA/CISO/TGC/NFS images natively with the
+  selected compression method (zstd, bzip2, lzma, lzma2), level and block size. The `zlib` and
+  `lz4` methods are DolphinTool-only and always use the external tool. A **Scrub** option zeroes
+  non-game Wii partitions before encoding.
+- **Decode**: `RVZSharp` writes ISO (parallel full-image decode), WIA, GCZ, WBFS, CISO and TGC
+  natively. DolphinTool is only used as a fallback for the formats it supports (ISO/WIA/GCZ/WBFS).
+- **Verify**: `RVZSharp` runs Dolphin's volume verification (Wii partition hash trees plus the
+  TMD/H3 tables) and logs the decoded image's CRC-32, MD5 and SHA-1. DolphinTool `verify` is used
+  as a fallback.
 - **Automatic Fallback**: If the library fails on a file (corrupt input, unsupported feature,
-  etc.), the application automatically falls back to `DolphinTool` for that file and the batch
-  continues normally.
+  etc.), the application automatically falls back to `DolphinTool` for that file when DolphinTool
+  supports the operation, and the batch continues normally.
 - **Input Pre-validation**: Before encoding, the application verifies the input actually looks
   like a disc image — the GameCube/Wii disc header magic (Wii `5D 1C 9E A3` at offset 0x18,
   GameCube `C2 33 9F 3D` at offset 0x1C) on ISO/GCM files, and the real container magic
-  (`WBFS`, GCZ `01 C0 0B B1`, `WIA\x01`/`RVZ\x01`) on container files. Unrecognized data is
-  sent to `DolphinTool` instead of being wrapped into a broken RVZ.
-- **Failure Reporting**: Every RVZSharp failure is logged and automatically sent to the Bug
-  Report API with full error details, so library issues can be fixed over time.
+  (`WBFS`, GCZ `01 C0 0B B1`, `WIA\x01`/`RVZ\x01`, CISO `CISO`, TGC `AE 0F 38 A2`, NFS `EGGS`)
+  on container files. Unrecognized data is sent to `DolphinTool` instead of being wrapped into a
+  broken RVZ.
+- **Failure Reporting**: Unexpected RVZSharp failures are logged at Error level and automatically
+  sent to the Bug Report API with full error details; expected user-input failures (corrupt files,
+  format mismatches, missing NFS keys) are logged at Information level.
 
 ## Supported File Formats
 
 ### Input Formats
 - **ISO files**: GameCube and Wii disc images (`.iso`)
 - **GCM files**: GameCube disc images (`.gcm`)
-- **WBFS files**: Wii Backup File System images (`.wbfs`)
+- **WBFS files**: Wii Backup File System images (`.wbfs`, including split `.wbf1…` parts)
+- **GCZ files**: Dolphin compressed disc images (`.gcz`)
+- **WIA files**: Older Dolphin containers (`.wia`)
+- **CISO/WBI files**: Block-compressed images (`.ciso`, `.wbi`)
+- **TGC files**: Tiny GameCube images (`.tgc`)
+- **NFS files**: Wii U–era EGGS images (`.nfs`, with the `code/htk.bin` key file alongside)
 - **NKit ISO files**: NKit compressed ISO files (`.nkit.iso`)
 - **Archive files**: ZIP, 7Z, and RAR archives containing game files (`.zip`, `.7z`, `.rar`)
 
 ### Output Formats
 - **RVZ files**: Compressed GameCube/Wii disc images (`.rvz`)
+- **Extraction outputs**: ISO, WIA, GCZ, WBFS, CISO and TGC
 
 ## Requirements
 
 - **Runtime**: [.NET 10.0 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (not required for the self-contained release builds)
 - **Operating System**: Windows 10 or later, a modern Linux distribution, or macOS (x64 or ARM64)
-- **Dependencies**: All required files are included in the release:
+- **Dependencies**: The built-in RVZSharp engine requires no external tools. Release packages also bundle optional fallbacks:
   - Windows: `DolphinTool.exe` / `DolphinTool_arm64.exe` and `7za.exe` / `7za_arm64.exe`
   - Linux/macOS: `DolphinTool` / `DolphinTool_arm64` and `7za` / `7za_arm64`
 
@@ -162,6 +183,7 @@ converting disc images to RVZ (encode) and RVZ back to ISO (decode):
 2. **Select Output Folder**: Click "Browse" next to "Output Folder" to choose where the RVZ files will be saved.
 3. **Configure General Settings**:
    - Check "Delete original files after conversion" to remove source files after successful conversion.
+   - Check "Scrub non-game Wii partitions (update/channel)" to zero non-game partition data before encoding for smaller RVZ files.
 
 4. **Configure Compression Settings**:
    - **Method**: Choose compression algorithm (zstd, zlib, lzma, lzma2, bzip2, lz4).
@@ -181,6 +203,16 @@ converting disc images to RVZ (encode) and RVZ back to ISO (decode):
    - Check "Move successful RVZ files to '_Success' subfolder" to organize verified files.
 4. **Start Verification**: Click "Start Verification" to begin checking file integrity with real-time feedback.
 5. **Review Results**: Check the log and statistics for detailed verification results.
+
+### Exploring Disc Contents
+
+1. **Switch to Explorer Tab**: Click the "Explorer" tab.
+2. **Select Image File**: Click "Browse..." to choose any supported disc image (ISO, RVZ, WIA, GCZ, CISO, WBFS, TGC or NFS).
+3. **Open**: Click "Open" to parse the image's file system and show its volume information.
+4. **Browse**: Expand folders in the tree and select an entry to see its path, type, size and data offset.
+5. **Copy Out**: Click "Copy Out..." to extract the selected file (or a whole folder) to disk.
+6. **Hash**: Click "SHA-256" to compute the hash of the selected file without extracting it.
+7. **Wii Discs**: Use the partition selector to switch between game, update and channel partitions.
 
 ### Header Actions
 
@@ -222,7 +254,7 @@ RVZ is a compressed disk image format developed specifically for the Dolphin Emu
 
 ## Troubleshooting
 
-- **Missing Dependencies**: Ensure `DolphinTool.exe` (or `DolphinTool_arm64.exe` for ARM64 systems) is present in the application directory.
+- **Missing Dependencies**: `DolphinTool` is optional — the built-in RVZSharp engine handles conversion, extraction and verification on its own. If the DolphinTool fallback is needed but missing, add `DolphinTool.exe` (or `DolphinTool_arm64.exe` for ARM64 systems) to the application directory.
 - **Permission Issues**: Make sure you have read permissions for input directories and write permissions for output directories.
 - **Archive Extraction Failures**: Verify that the archive files are not corrupted. The app now supports instant cancellation if extraction hangs.
 - **Conversion Errors**: Check the detailed real-time log output for specific error messages. Log files are also saved to `%LocalAppData%\RVZStudio\logs\`.
@@ -312,8 +344,8 @@ dotnet test
 
 ## Acknowledgements
 
-- **DolphinTool**: Uses `DolphinTool` from the [Dolphin Emulator project](https://dolphin-emu.org/) as a fallback for RVZ conversion and verification.
-- **RVZSharp**: Uses the [RVZSharp](https://github.com/purelogiccode/RVZSharp) library for native RVZ encoding and decoding.
+- **DolphinTool**: Uses `DolphinTool` from the [Dolphin Emulator project](https://dolphin-emu.org/) as a fallback for RVZ conversion, extraction and verification.
+- **RVZSharp**: Uses the [RVZSharp](https://github.com/purelogiccode/RVZSharp) library as the primary engine for native disc image encoding, decoding and verification.
 - **SharpCompress**: Uses the [SharpCompress](https://github.com/adamhathcock/sharpcompress) library for reliable archive extraction.
 - **Serilog**: Uses [Serilog](https://serilog.net/) for structured logging with custom sinks.
 - **Development**: Created and maintained by [Pure Logic Code](https://www.purelogiccode.com)

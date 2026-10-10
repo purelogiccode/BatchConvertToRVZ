@@ -5,22 +5,60 @@ namespace RVZStudio.services;
 /// </summary>
 public sealed class FileService
 {
-    // Supported input extensions for conversion (ISO, GCM, WBFS, GCZ, WIA, NKIT.ISO, RAR, 7Z, ZIP)
+    // Supported input extensions for conversion (ISO, GCM, WBFS, GCZ, WIA, CISO/WBI, TGC,
+    // NFS, NKIT.ISO, RAR, 7Z, ZIP)
     private static readonly string[] AllSupportedInputExtensions =
-        [".iso", ".gcm", ".wbfs", ".gcz", ".wia", ".nkit.iso", ".zip", ".7z", ".rar"];
+    [
+        ".iso", ".gcm", ".wbfs", ".gcz", ".wia", ".ciso", ".wbi", ".tgc", ".nfs",
+        ".nkit.iso", ".zip", ".7z", ".rar"
+    ];
 
     // Archive extensions
     private static readonly string[] ArchiveExtensions = [".zip", ".7z", ".rar"];
 
     // Extensions for files inside archives that we want to extract and convert
     private static readonly string[] PrimaryTargetExtensionsInsideArchive =
-        [".iso", ".gcm", ".wbfs", ".rvz", ".gcz", ".wia", ".nkit.iso"];
+        [".iso", ".gcm", ".wbfs", ".rvz", ".gcz", ".wia", ".ciso", ".wbi", ".tgc", ".nfs", ".nkit.iso"];
 
     // RVZ extensions for verification
     private static readonly string[] RvzExtension = [".rvz"];
 
     // Extraction input extensions (RVZ, 7Z, RAR, ZIP)
     private static readonly string[] ExtractionInputExtensions = [".rvz", ".zip", ".7z", ".rar"];
+
+    // Disc image extensions the Explorer tab can open (NKIT is excluded: RVZSharp does not
+    // understand the NKIT format).
+    private static readonly string[] ExplorerExtensions =
+        [".iso", ".gcm", ".wbfs", ".gcz", ".wia", ".rvz", ".ciso", ".wbi", ".tgc", ".nfs"];
+
+    /// <summary>
+    /// Gets the disc image extensions the Explorer tab can open.
+    /// </summary>
+    /// <returns>Array of explorer-supported disc image extensions.</returns>
+    public static string[] GetExplorerExtensions()
+    {
+        return ExplorerExtensions;
+    }
+
+    /// <summary>
+    /// Determines whether the specified file is a disc image the Explorer tab can open.
+    /// </summary>
+    /// <param name="filePath">The file path.</param>
+    /// <returns>true if the file is an explorer-supported disc image; otherwise, false.</returns>
+    public static bool IsSupportedExplorerFile(string filePath)
+    {
+        var fileName = Path.GetFileName(filePath);
+
+        // NKIT containers are not understood by RVZSharp.
+        if (fileName.EndsWith(".nkit.iso", StringComparison.OrdinalIgnoreCase) ||
+            fileName.EndsWith(".nkit.gcz", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var extension = Path.GetExtension(filePath);
+        return ExplorerExtensions.Any(ext => ext.Equals(extension, StringComparison.OrdinalIgnoreCase));
+    }
 
     /// <summary>
     /// Gets archive file extensions.

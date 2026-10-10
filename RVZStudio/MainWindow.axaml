@@ -73,6 +73,7 @@
                                 <Expander Grid.Column="0" Header="General Settings" Margin="0,5,5,10" Padding="10" IsExpanded="False">
                                     <StackPanel>
                                         <CheckBox x:Name="DeleteFilesCheckBox" Content="Delete original files after conversion" Margin="0,5" HorizontalAlignment="Left" ToolTip.Tip="WARNING: Permanently deletes source files after successful conversion. Use with caution!" />
+                                        <CheckBox x:Name="ScrubCheckBox" Content="Scrub non-game Wii partitions (update/channel)" Margin="0,5" HorizontalAlignment="Left" IsChecked="False" ToolTip.Tip="Zeroes the data of non-game Wii partitions before encoding, making RVZ files smaller. Ignored for GameCube discs." />
                                     </StackPanel>
                                 </Expander>
 
@@ -117,7 +118,7 @@
                             <TextBlock Grid.Row="3" Text="Select Files to Convert:" Margin="0,5,0,0" FontWeight="Bold" ToolTip.Tip="List of files to convert. Check a file to include it in the batch." />
                             <Grid Grid.Row="4" Margin="0,5" VerticalAlignment="Stretch">
                                 <DataGrid x:Name="ConversionFilesDataGrid" AutoGenerateColumns="False" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" SelectionMode="Single"
-                                          DragDrop.AllowDrop="True" DragDrop.Drop="ConversionFilesDataGrid_Drop" DragDrop.DragOver="ConversionFilesDataGrid_DragOver" ToolTip.Tip="Drag and drop ISO, GCM, WBFS, GCZ, WIA, NKIT.ISO, ZIP, 7Z, or RAR files here">
+                                          DragDrop.AllowDrop="True" DragDrop.Drop="ConversionFilesDataGrid_Drop" DragDrop.DragOver="ConversionFilesDataGrid_DragOver" ToolTip.Tip="Drag and drop ISO, GCM, WBFS, GCZ, WIA, CISO/WBI, TGC, NFS, NKIT.ISO, ZIP, 7Z, or RAR files here">
                                     <DataGrid.Columns>
                                         <DataGridCheckBoxColumn Header="Select" Binding="{Binding IsSelected, Mode=TwoWay}" Width="90" IsThreeState="False" />
                                         <DataGridTextColumn Header="File Name" Binding="{Binding FileName}" Width="*" IsReadOnly="True" />
@@ -203,6 +204,8 @@
                                             <ComboBoxItem Content="WBFS" />
                                             <ComboBoxItem Content="GCZ" />
                                             <ComboBoxItem Content="WIA" />
+                                            <ComboBoxItem Content="CISO" />
+                                            <ComboBoxItem Content="TGC" />
                                         </ComboBox>
                                     </StackPanel>
                                 </StackPanel>
@@ -225,6 +228,72 @@
                             </StackPanel>
 
                             <Button Grid.Row="6" x:Name="StartExtractionButton" Content="Start Extraction" Click="StartExtractionButton_Click" Theme="{StaticResource StartButtonStyle}" HorizontalAlignment="Stretch" ToolTip.Tip="Begin the batch extraction process" />
+                        </Grid>
+                    </Border>
+                </TabItem>
+
+                <TabItem Header="Explorer" ToolTip.Tip="Browse the contents of a disc image without extracting it">
+                    <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="0,0,6,6" Padding="15" VerticalAlignment="Stretch">
+                        <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+                            <!-- Image selection -->
+                            <Grid Grid.Row="0" Margin="0,0,0,10" ColumnDefinitions="120,*,Auto">
+                                <TextBlock Text="Image File:" VerticalAlignment="Center" ToolTip.Tip="The disc image to browse (ISO, RVZ, WIA, GCZ, CISO, WBFS, TGC or NFS)" />
+                                <TextBox x:Name="ExplorerImageTextBox" Grid.Column="1" Margin="5,0" IsReadOnly="True" ToolTip.Tip="The disc image selected for browsing" />
+                                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                    <Button x:Name="BrowseExplorerImageButton" Content="Browse..." Click="BrowseExplorerImageButton_Click" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for a disc image to explore" />
+                                    <Button x:Name="OpenExplorerImageButton" Content="Open" Click="OpenExplorerImageButton_Click" Theme="{StaticResource StartButtonStyle}" Margin="5,0,0,0" ToolTip.Tip="Open the selected image and parse its file system" />
+                                    <Button x:Name="RefreshExplorerButton" Content="Refresh" Click="RefreshExplorerButton_Click" Theme="{StaticResource ActionButtonStyle}" Margin="5,0,0,0" IsEnabled="False" ToolTip.Tip="Reload the directory tree from the open image" />
+                                    <Button x:Name="CloseExplorerButton" Content="Close" Click="CloseExplorerButton_Click" Theme="{StaticResource ActionButtonStyle}" Margin="5,0,0,0" IsEnabled="False" ToolTip.Tip="Close the open image" />
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Volume summary and partition selector -->
+                            <Grid Grid.Row="1" Margin="0,0,0,10" ColumnDefinitions="*,Auto">
+                                <TextBlock x:Name="ExplorerVolumeText" Text="No image open." TextWrapping="Wrap" VerticalAlignment="Center" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" ToolTip.Tip="Information about the open disc image" />
+                                <StackPanel x:Name="ExplorerPartitionPanel" Grid.Column="1" Orientation="Horizontal" IsVisible="False" Margin="10,0,0,0">
+                                    <TextBlock Text="Partition:" VerticalAlignment="Center" Margin="0,0,5,0" ToolTip.Tip="The Wii partition currently being browsed" />
+                                    <ComboBox x:Name="ExplorerPartitionComboBox" Width="150" SelectionChanged="ExplorerPartitionComboBox_SelectionChanged" ToolTip.Tip="Select the Wii partition to browse" />
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- File tree and entry details -->
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" MinWidth="260" />
+                                    <ColumnDefinition Width="340" MinWidth="240" />
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" Background="{StaticResource TerminalBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="4" Padding="4" ToolTip.Tip="The disc's file system; expand folders and select an entry">
+                                    <TreeView x:Name="ExplorerTreeView" Background="Transparent" SelectionChanged="ExplorerTreeView_SelectionChanged" ToolTip.Tip="Directory tree of the open image">
+                                        <TreeView.Styles>
+                                            <Style Selector="TreeViewItem">
+                                                <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                                                <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+                                            </Style>
+                                        </TreeView.Styles>
+                                        <TreeView.ItemTemplate>
+                                            <TreeDataTemplate ItemsSource="{Binding Children}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimaryBrush}" ToolTip.Tip="Name of the file or folder in the image" />
+                                                    <TextBlock Text="{Binding Suffix, StringFormat='  ({0})'}" FontSize="11" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" ToolTip.Tip="Entry size or type" />
+                                                </StackPanel>
+                                            </TreeDataTemplate>
+                                        </TreeView.ItemTemplate>
+                                    </TreeView>
+                                </Border>
+
+                                <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                    <TextBox x:Name="ExplorerDetailsTextBox" Text="Select an entry in the tree." IsReadOnly="True" AcceptsReturn="True" BorderThickness="0" Background="Transparent" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" MinHeight="120" ToolTip.Tip="Read-only details of the selected tree entry" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                        <Button x:Name="CopyOutExplorerButton" Content="Copy Out..." Click="CopyOutExplorerButton_Click" Theme="{StaticResource StartButtonStyle}" IsEnabled="False" ToolTip.Tip="Extract the selected file or folder to disk" />
+                                        <Button x:Name="HashExplorerButton" Content="SHA-256" Click="HashExplorerButton_Click" Theme="{StaticResource ActionButtonStyle}" Margin="8,0,0,0" IsEnabled="False" ToolTip.Tip="Compute the SHA-256 of the selected file" />
+                                    </StackPanel>
+                                    <TextBlock x:Name="ExplorerHashText" FontFamily="Consolas" FontSize="11" Margin="0,8,0,0" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" ToolTip.Tip="SHA-256 hash of the selected file, if computed" />
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock x:Name="ExplorerStatusText" Grid.Row="3" FontSize="11" Margin="0,8,0,0" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" ToolTip.Tip="Explorer status messages" />
                         </Grid>
                     </Border>
                 </TabItem>

@@ -32,7 +32,9 @@ public class ConversionService
         Action<int, int, string> updateProgress,
         Action<int> incrementSuccess,
         Action<int> incrementFailure,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool scrub = false,
+        IProgress<double>? fileProgress = null)
     {
         try
         {
@@ -57,6 +59,8 @@ public class ConversionService
                 var fileName = Path.GetFileName(inputFile);
                 _logger.Information("{Message:l}", $"Processing: {fileName}");
 
+                fileProgress?.Report(0);
+
                 var success = await ProcessFileAsync(
                     dolphinToolPath,
                     inputFile,
@@ -65,6 +69,8 @@ public class ConversionService
                     compressionMethod,
                     compressionLevel,
                     blockSize,
+                    scrub,
+                    fileProgress,
                     cancellationToken);
 
                 if (success)
@@ -101,6 +107,8 @@ public class ConversionService
         string compressionMethod,
         int compressionLevel,
         int blockSize,
+        bool scrub,
+        IProgress<double>? fileProgress,
         CancellationToken cancellationToken)
     {
         var fileName = Path.GetFileName(inputFile);
@@ -118,6 +126,8 @@ public class ConversionService
                     compressionMethod,
                     compressionLevel,
                     blockSize,
+                    scrub,
+                    fileProgress,
                     cancellationToken);
             }
             else
@@ -130,6 +140,8 @@ public class ConversionService
                     compressionMethod,
                     compressionLevel,
                     blockSize,
+                    scrub,
+                    fileProgress,
                     cancellationToken);
             }
         }
@@ -153,6 +165,8 @@ public class ConversionService
         string compressionMethod,
         int compressionLevel,
         int blockSize,
+        bool scrub,
+        IProgress<double>? fileProgress,
         CancellationToken cancellationToken)
     {
         var archiveFileName = Path.GetFileName(archivePath);
@@ -209,6 +223,8 @@ public class ConversionService
                         compressionMethod,
                         compressionLevel,
                         blockSize,
+                        scrub,
+                        fileProgress,
                         cancellationToken);
                 }
 
@@ -244,6 +260,8 @@ public class ConversionService
         string compressionMethod,
         int compressionLevel,
         int blockSize,
+        bool scrub,
+        IProgress<double>? fileProgress,
         CancellationToken cancellationToken)
     {
         var fileName = Path.GetFileName(inputFile);
@@ -261,6 +279,7 @@ public class ConversionService
                 {
                     Directory.CreateDirectory(outputFolder);
                     File.Copy(inputFile, outputFile, true);
+                    fileProgress?.Report(1);
                     _logger.Information("{Message:l}", $"Successfully copied RVZ file: {fileName}");
 
                     if (deleteOriginal)
@@ -287,6 +306,8 @@ public class ConversionService
                     compressionMethod,
                     compressionLevel,
                     blockSize,
+                    scrub,
+                    fileProgress,
                     cancellationToken);
 
                 if (success && deleteOriginal)
@@ -316,11 +337,13 @@ public class ConversionService
         string compressionMethod,
         int compressionLevel,
         int blockSize,
+        bool scrub,
+        IProgress<double>? fileProgress,
         CancellationToken cancellationToken)
     {
         if (RvzSharpService.CanEncode(inputFile, compressionMethod)
             && _rvzSharpService.TryEncode(inputFile, outputFile, compressionMethod, compressionLevel, blockSize,
-                cancellationToken))
+                scrub, fileProgress, cancellationToken))
         {
             return true;
         }

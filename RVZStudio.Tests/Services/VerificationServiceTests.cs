@@ -87,7 +87,7 @@ public class VerificationServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task PerformBatchVerificationAsync_MissingExecutable_LogsErrorAndReportsFailure()
+    public async Task PerformBatchVerificationAsync_InvalidDisc_ReportsFailureNatively()
     {
         var service = CreateService();
         var filePath = Path.Combine(_tempDir, "test.rvz");
@@ -100,7 +100,58 @@ public class VerificationServiceTests : IDisposable
             static (_, _, _) => { }, static _ => { }, _ => failureCount++, CancellationToken.None);
 
         Assert.Equal(1, failureCount);
+        Assert.Contains(_logMessages, static m => m.Contains("Verification failed"));
+        Assert.Contains(_logMessages, static m => m.Contains("not a GameCube/Wii disc image"));
+    }
+
+    [Fact]
+    public async Task PerformBatchVerificationAsync_NativeUnavailable_FallsBackToDolphinTool()
+    {
+        var service = CreateService();
+        var filePath = Path.Combine(_tempDir, "test.dat");
+        File.WriteAllText(filePath, "not a real disc image");
+
+        var failureCount = 0;
+
+        await service.PerformBatchVerificationAsync(
+            @"C:\nonexistent_path\fake_dolphin.exe", [filePath], false, false,
+            static (_, _, _) => { }, static _ => { }, _ => failureCount++, CancellationToken.None);
+
+        Assert.Equal(1, failureCount);
         Assert.Contains(_logMessages, static m => m.Contains("Error verifying file"));
+    }
+
+    [Fact]
+    public async Task PerformBatchVerificationAsync_ValidRvz_VerifiesNatively()
+    {
+        var service = CreateService();
+
+        // Build a synthetic GameCube disc and encode it to RVZ with the library.
+        var isoPath = Path.Combine(_tempDir, "game.iso");
+        var rvzPath = Path.Combine(_tempDir, "game.rvz");
+        var content = new byte[350_000];
+        new Random(42).NextBytes(content);
+        content[0x1C] = 0xC2;
+        content[0x1D] = 0x33;
+        content[0x1E] = 0x9F;
+        content[0x1F] = 0x3D;
+        File.WriteAllBytes(isoPath, content);
+
+        var encoder = new RvzSharpService(new LoggerConfiguration().CreateLogger());
+        Assert.True(encoder.TryEncode(isoPath, rvzPath, "zstd", 5, 131072, scrub: false, progress: null,
+            CancellationToken.None));
+
+        var successCount = 0;
+        var failureCount = 0;
+
+        await service.PerformBatchVerificationAsync(
+            @"C:\nonexistent_path\fake_dolphin.exe", [rvzPath], false, false,
+            static (_, _, _) => { }, _ => successCount++, _ => failureCount++, CancellationToken.None);
+
+        Assert.Equal(1, successCount);
+        Assert.Equal(0, failureCount);
+        Assert.Contains(_logMessages, static m => m.Contains("Verification successful"));
+        Assert.Contains(_logMessages, static m => m.Contains("Hashes for"));
     }
 
     [Fact]

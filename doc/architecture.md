@@ -80,10 +80,11 @@ service callbacks onto the Avalonia dispatcher. There is no MVVM framework.
 | Service | Responsibility |
 |---------|----------------|
 | `ConversionService` | Batch conversion loop, archive handling, output naming, deletion, cancellation. |
-| `VerificationService` | DolphinTool `verify` integration, result parsing and file moves. |
-| `ExtractionService` | RVZ decoding to ISO/WBFS/GCZ/WIA with the same fallback model as conversion. |
+| `VerificationService` | RVZSharp volume verification with DolphinTool `verify` as fallback, result handling and file moves. |
+| `ExtractionService` | RVZ/WIA decoding to ISO/WIA/GCZ/WBFS/CISO/TGC with the same fallback model as conversion. |
+| `DiscExplorerService` | Opens any supported image with RVZSharp, parses the FST, copies entries out and hashes files. |
 | `FileService` | Extension sets, filtering and base-name handling for compound extensions such as `.nkit.iso`. |
-| `RvzSharpService` | Native RVZ encode/decode via the RVZSharp library plus input pre-validation. |
+| `RvzSharpService` | Native encode/decode/verify via the RVZSharp library, disc metadata, hashes and input pre-validation. |
 | `ScreenshotService` | `F8` window capture using Avalonia `RenderTargetBitmap`. |
 | `UpdateService` | GitHub Releases API client with semantic version comparison. |
 | `BugReportService` | Sends error reports with environment and stack-trace details. |
@@ -122,18 +123,27 @@ Key behaviors:
    Wii (`5D 1C 9E A3` at `0x18`) disc magic; container formats are checked for their real magic.
    Unrecognized data goes straight to DolphinTool.
 3. **Native-first conversion** — RVZSharp writes `zstd`, `bzip2`, `lzma` and `lzma2`; `zlib` and
-   `lz4` are DolphinTool-only.
-4. **Fallback and reporting** — every RVZSharp failure is logged at Error level, which
-   automatically forwards it to the bug-report API, and the file is retried with DolphinTool.
+   `lz4` are DolphinTool-only. An optional Scrub setting zeroes non-game Wii partitions before
+   encoding.
+4. **Fallback and reporting** — expected user-input failures (corrupt files, format mismatches)
+   are logged at Information level and the file is retried with DolphinTool; unexpected library
+   failures are logged at Error level, which automatically forwards them to the bug-report API.
 
 ## Verification and extraction pipelines
 
-- **Verification** runs `DolphinTool verify -i <file>` per file, streams stdout/stderr into the
-  log, treats exit code `0` plus `Problems Found: No` as success, and optionally moves files to
-  `_Success` / `_Failed`.
-- **Extraction** decodes RVZ to ISO with RVZSharp when possible; WBFS/GCZ/WIA outputs always use
-  DolphinTool. Existing outputs are deleted before conversion and the source can optionally be
-  removed afterwards.
+- **Verification** runs the native RVZSharp volume verifier first (Wii partition headers, TMD/H3
+  tables and the h0/h1/h2/h3 hash trees) and logs the decoded image's CRC-32/MD5/SHA-1 hashes.
+  If the library cannot verify the file, `DolphinTool verify -i <file>` is used as a fallback
+  (exit code `0` plus `Problems Found: No`). Files can optionally move to `_Success` / `_Failed`.
+- **Extraction** writes ISO (parallel full-image decode), WIA, GCZ, WBFS, CISO and TGC with
+  RVZSharp. DolphinTool is the fallback for the four formats it supports (ISO/WIA/GCZ/WBFS);
+  CISO and TGC are RVZSharp-only. Existing outputs are deleted before conversion and the source
+  can optionally be removed afterwards.
+- **Explorer** opens the image with `Blob.Open`, parses the selected Wii partition's (or the
+  GameCube disc's) FST with `DiscFileSystem`, and exposes the tree. Expanding a folder
+  materializes children from the in-memory FST (no I/O); copy-out streams decrypted file bytes
+  with `CopyFileTo`; hashing feeds those bytes into an `IncrementalHash` sink. Entry names are
+  sanitized so hostile FST names cannot escape the destination folder.
 
 ## Threading and responsiveness
 

@@ -8,10 +8,12 @@ namespace RVZStudio.services;
 public class VerificationService
 {
     private readonly ILogger _logger;
+    private readonly RvzSharpService _rvzSharpService;
 
-    public VerificationService(ILogger logger)
+    public VerificationService(ILogger logger, RvzSharpService? rvzSharpService = null)
     {
         _logger = logger.ForContext<VerificationService>();
+        _rvzSharpService = rvzSharpService ?? new RvzSharpService(logger);
     }
 
     public async Task PerformBatchVerificationAsync(
@@ -22,7 +24,8 @@ public class VerificationService
         Action<int, int, string> updateProgress,
         Action<int> incrementSuccess,
         Action<int> incrementFailure,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IProgress<double>? fileProgress = null)
     {
         try
         {
@@ -46,12 +49,16 @@ public class VerificationService
 
                 var fileName = Path.GetFileName(inputFile);
                 var baseFolder = Path.GetDirectoryName(inputFile) ?? string.Empty;
+
+                fileProgress?.Report(0);
+
                 var success = await VerifyRvzFileAsync(
                     dolphinToolPath,
                     inputFile,
                     baseFolder,
                     moveFailed,
                     moveSuccess,
+                    fileProgress,
                     cancellationToken);
 
                 if (success)
@@ -84,9 +91,48 @@ public class VerificationService
         string baseFolder,
         bool moveFailed,
         bool moveSuccess,
+        IProgress<double>? fileProgress,
         CancellationToken token)
     {
         var fileName = Path.GetFileName(inputFile);
+        _logger.Information("{Message:l}", $"Verifying: {fileName}...");
+
+        // RVZSharp is the primary engine: it verifies the container and, for Wii discs,
+        // walks every partition's hash tree like Dolphin's volume verifier.
+        if (RvzSharpService.CanDecode(inputFile))
+        {
+            var nativeResult = await Task.Run(
+                () => _rvzSharpService.TryVerify(inputFile, fileProgress, token), token).ConfigureAwait(false);
+
+            if (nativeResult is not null)
+            {
+                var nativeSuccess = nativeResult.Value;
+                if (nativeSuccess)
+                {
+                    _logger.Information("{Message:l}", $"Verification successful: {fileName}");
+
+                    if (moveSuccess)
+                    {
+                        await MoveFileToSubfolderAsync(inputFile, baseFolder, "_Success", token);
+                    }
+                }
+                else
+                {
+                    _logger.Information("{Message:l}", $"Verification failed: {fileName}");
+
+                    if (moveFailed)
+                    {
+                        await MoveFileToSubfolderAsync(inputFile, baseFolder, "_Failed", token);
+                    }
+                }
+
+                return nativeSuccess;
+            }
+
+            _logger.Information("{Message:l}",
+                $"RVZSharp could not verify {fileName}; falling back to DolphinTool.");
+        }
+
         using var process = new Process();
         var verificationResult = false;
         string? tempWorkingDirectory = null;
@@ -96,8 +142,6 @@ public class VerificationService
 
         try
         {
-            _logger.Information("{Message:l}", $"Verifying: {fileName}...");
-
             if (!ProcessHelper.ExecutableExists(dolphinToolPath))
             {
                 _logger.Error("DolphinTool is missing. {Message:l}",

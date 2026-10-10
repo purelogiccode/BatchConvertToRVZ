@@ -301,7 +301,7 @@ public class ExtractionServiceTests : IDisposable
     [Fact]
     public async Task PerformBatchExtractionAsyncValidFormatsAccepted()
     {
-        foreach (var format in new[] { "iso", "wbfs", "gcz", "wia" })
+        foreach (var format in new[] { "iso", "wbfs", "gcz", "wia", "ciso", "tgc" })
         {
             _logMessages.Clear();
             var service = CreateService();
@@ -316,5 +316,41 @@ public class ExtractionServiceTests : IDisposable
             // Should not log "Invalid output format" for valid formats
             Assert.DoesNotContain(_logMessages, static m => m.Contains("Invalid output format"));
         }
+    }
+
+    [Theory]
+    [InlineData("wia")]
+    [InlineData("gcz")]
+    [InlineData("ciso")]
+    public async Task PerformBatchExtractionAsyncNativeWritersExtractWithoutDolphinTool(string outputFormat)
+    {
+        var service = CreateService();
+
+        // Build a synthetic GameCube disc and encode it to RVZ with the library.
+        var isoPath = Path.Combine(_tempDir, "game.iso");
+        var rvzPath = Path.Combine(_tempDir, "game.rvz");
+        var content = new byte[350_000];
+        new Random(42).NextBytes(content);
+        content[0x1C] = 0xC2;
+        content[0x1D] = 0x33;
+        content[0x1E] = 0x9F;
+        content[0x1F] = 0x3D;
+        File.WriteAllBytes(isoPath, content);
+
+        var encoder = new RvzSharpService(new LoggerConfiguration().CreateLogger());
+        Assert.True(encoder.TryEncode(isoPath, rvzPath, "zstd", 5, 131072, scrub: false, progress: null,
+            CancellationToken.None));
+
+        var successCount = 0;
+        var failureCount = 0;
+
+        await service.PerformBatchExtractionAsync(
+            @"C:\nonexistent_path\fake_dolphin.exe", [rvzPath], _tempDir, false, outputFormat,
+            static (_, _, _) => { }, _ => successCount++, _ => failureCount++, CancellationToken.None);
+
+        Assert.Equal(1, successCount);
+        Assert.Equal(0, failureCount);
+        Assert.Contains(_logMessages,
+            m => m.Contains($"Converted to {outputFormat.ToUpperInvariant()} using RVZSharp"));
     }
 }

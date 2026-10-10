@@ -57,6 +57,7 @@ The block size is the granularity at which the RVZ container stores compressed d
 | Option | Default | Description |
 |--------|---------|-------------|
 | Delete original files after conversion | Off | Permanently deletes each source file (including archives) after it converts successfully. Use with caution. |
+| Scrub non-game Wii partitions (update/channel) | Off | Zeroes the data of non-game Wii partitions before encoding, making RVZ files smaller. Ignored for GameCube discs. |
 
 ## General settings — Verify tab
 
@@ -71,10 +72,10 @@ The block size is the granularity at which the RVZ container stores compressed d
 | Option | Default | Description |
 |--------|---------|-------------|
 | Delete original RVZ files after extraction | Off | Deletes the source RVZ after a successful extraction. |
-| Output Format | `ISO` | Target format: `ISO`, `WBFS`, `GCZ` or `WIA`. |
+| Output Format | `ISO` | Target format: `ISO`, `WBFS`, `GCZ`, `WIA`, `CISO` or `TGC`. |
 
-`ISO` extraction uses the native RVZSharp decoder when possible; the other formats always go
-through DolphinTool.
+All output formats are written natively by RVZSharp. DolphinTool is used as a fallback for the
+formats it supports (`ISO`, `WBFS`, `GCZ`, `WIA`); `CISO` and `TGC` are RVZSharp-only.
 
 ## Behavior that is always on
 
@@ -83,10 +84,10 @@ Some safeguards are not configurable:
 - **Same-folder protection** — input and output folders must differ and must not be nested.
 - **Existing output handling** — conversions skip files whose RVZ output already exists.
 - **Disc header pre-validation** — before the native encoder runs, RVZStudio checks the
-  GameCube/Wii disc magic on ISO/GCM files and the real container magic on WBFS/GCZ/WIA files.
-  Unrecognized data is routed to DolphinTool instead of producing a broken RVZ.
-- **Automatic fallback** — any RVZSharp failure falls back to DolphinTool for that file and the
-  batch continues.
+  GameCube/Wii disc magic on ISO/GCM files and the real container magic on WBFS/GCZ/WIA/CISO/
+  TGC/NFS files. Unrecognized data is routed to DolphinTool instead of producing a broken RVZ.
+- **Automatic fallback** — any RVZSharp failure falls back to DolphinTool for that file (where
+  DolphinTool supports the operation) and the batch continues.
 
 ## Related pages
 

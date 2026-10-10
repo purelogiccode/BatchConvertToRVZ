@@ -1,18 +1,23 @@
+using System.Globalization;
 using RVZSharp;
 using RVZSharp.Blobs;
+using RVZSharp.Interfaces;
 using RVZSharp.Models;
+using RVZSharp.Verification;
 using Serilog;
 
 namespace RVZStudio.services;
 
 /// <summary>
-/// Uses the RVZSharp library to natively encode (disc image -&gt; RVZ) and decode (RVZ -&gt; ISO)
-/// disc images without shelling out to DolphinTool.
+/// Uses the RVZSharp library to natively encode (disc image -&gt; RVZ), decode (any container -&gt;
+/// ISO/WIA/GCZ/WBFS/CISO/TGC) and verify (Dolphin's volume verifier) disc images without
+/// shelling out to DolphinTool.
 /// <para>
-/// Every library failure is logged at Error level so it is automatically forwarded to the
-/// Bug Report API by <see cref="BugReportSink"/>; callers must fall back to DolphinTool
-/// when this service reports failure. Environmental failures (I/O, permissions) are logged
-/// at Information level and do not produce bug reports.
+/// RVZSharp is the primary engine; every method reports failure so the caller can fall back
+/// to DolphinTool where it supports the operation. Expected user-input failures (corrupt
+/// files, format/container mismatches) are logged at Information level; unexpected library
+/// failures are logged at Error level so they are automatically forwarded to the Bug Report
+/// API by <see cref="BugReportSink"/>.
 /// </para>
 /// </summary>
 public class RvzSharpService
@@ -23,13 +28,19 @@ public class RvzSharpService
     // are excluded because RVZSharp does not understand the NKIT format.
     private static readonly HashSet<string> SupportedInputExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".iso", ".gcm", ".wbfs", ".gcz", ".wia", ".rvz"
+        ".iso", ".gcm", ".wbfs", ".gcz", ".wia", ".rvz", ".ciso", ".wbi", ".tgc", ".nfs"
     };
 
     // Compression methods the library can write. zlib and lz4 are DolphinTool-only.
     private static readonly HashSet<string> SupportedCompressionMethods = new(StringComparer.OrdinalIgnoreCase)
     {
         "zstd", "bzip2", "lzma", "lzma2"
+    };
+
+    // Output formats the library can write (the extraction tab's choices).
+    private static readonly HashSet<string> SupportedOutputFormats = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "iso", "wia", "gcz", "wbfs", "ciso", "tgc"
     };
 
     /// <summary>
@@ -70,6 +81,8 @@ public class RvzSharpService
     /// <param name="compressionMethod">The compression method (zstd, bzip2, lzma or lzma2).</param>
     /// <param name="compressionLevel">The compression level.</param>
     /// <param name="blockSize">The chunk/block size in bytes.</param>
+    /// <param name="scrub">Whether to zero the data of non-game Wii partitions before encoding.</param>
+    /// <param name="progress">Optional progress receiver (fraction in [0, 1]).</param>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     /// <returns>true on success; false when the library failed and DolphinTool should be used instead.</returns>
     public bool TryEncode(
@@ -78,6 +91,8 @@ public class RvzSharpService
         string compressionMethod,
         int compressionLevel,
         int blockSize,
+        bool scrub,
+        IProgress<double>? progress,
         CancellationToken cancellationToken)
     {
         try
@@ -98,6 +113,7 @@ public class RvzSharpService
             }
 
             using var input = Blob.Open(inputFile);
+            LogDiscInfo(input, inputFile);
             using var output = File.Create(outputFile);
 
             var options = new RvzWriteOptions
@@ -105,10 +121,11 @@ public class RvzSharpService
                 Compression = MapCompressionMethod(compressionMethod),
                 CompressionLevel = compressionLevel,
                 ChunkSize = blockSize,
-                Packing = true
+                Packing = true,
+                Scrub = scrub
             };
 
-            RvzWriter.Write(input, output, options, cancellationToken: cancellationToken);
+            RvzWriter.Write(input, output, options, progress, cancellationToken);
 
             _logger.Information("Converted to RVZ using RVZSharp: {FileName}", Path.GetFileName(inputFile));
             return true;
@@ -117,6 +134,16 @@ public class RvzSharpService
         {
             TryDeletePartialOutput(outputFile);
             throw;
+        }
+        catch (RvzException ex)
+        {
+            // Expected user-input failures: corrupt containers, unsupported versions,
+            // NFS images whose code/htk.bin key file is missing, ...
+            TryDeletePartialOutput(outputFile);
+            _logger.Information(
+                "RVZSharp could not encode {FileName}: {Message}. Falling back to DolphinTool.",
+                Path.GetFileName(inputFile), ex.Message);
+            return false;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -130,14 +157,14 @@ public class RvzSharpService
         {
             TryDeletePartialOutput(outputFile);
             _logger.Error(ex,
-                "RVZSharp library failed while encoding {FileName} (compression: {CompressionMethod}, level: {CompressionLevel}, block size: {BlockSize}). Falling back to DolphinTool.",
-                Path.GetFileName(inputFile), compressionMethod, compressionLevel, blockSize);
+                "RVZSharp library failed while encoding {FileName} (compression: {CompressionMethod}, level: {CompressionLevel}, block size: {BlockSize}, scrub: {Scrub}). Falling back to DolphinTool.",
+                Path.GetFileName(inputFile), compressionMethod, compressionLevel, blockSize, scrub);
             return false;
         }
     }
 
     /// <summary>
-    /// Returns true when the library can decode the given input file.
+    /// Returns true when the library can decode the given input file to another disc format.
     /// </summary>
     /// <param name="inputFile">The input RVZ (or WIA) file path.</param>
     /// <returns>true if RVZSharp should attempt the decoding; otherwise, false.</returns>
@@ -149,48 +176,109 @@ public class RvzSharpService
     }
 
     /// <summary>
-    /// Decodes an RVZ file back to the original disc image (ISO) using the library.
+    /// Decodes an RVZ/WIA file to the requested output format using the library. ISO output
+    /// uses the parallel full-image decode; the other formats use the matching writer
+    /// (WIA, GCZ, WBFS, CISO or TGC).
     /// </summary>
-    /// <param name="inputFile">The input RVZ file path.</param>
-    /// <param name="outputFile">The destination ISO file path.</param>
+    /// <param name="inputFile">The input RVZ/WIA file path.</param>
+    /// <param name="outputFile">The destination file path.</param>
+    /// <param name="outputFormat">The output format (iso, wia, gcz, wbfs, ciso or tgc).</param>
+    /// <param name="scrub">Whether to zero the data of non-game Wii partitions before writing.</param>
+    /// <param name="progress">Optional progress receiver (fraction in [0, 1]).</param>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     /// <returns>true on success; false when the library failed and DolphinTool should be used instead.</returns>
-    public bool TryDecodeToIso(
+    public bool TryDecode(
         string inputFile,
         string outputFile,
+        string outputFormat,
+        bool scrub,
+        IProgress<double>? progress,
         CancellationToken cancellationToken)
     {
+        var format = outputFormat.ToLowerInvariant();
+
+        if (!SupportedOutputFormats.Contains(format))
+        {
+            _logger.Information(
+                "RVZSharp cannot write output format {OutputFormat} for {FileName}. Falling back to DolphinTool.",
+                outputFormat, Path.GetFileName(inputFile));
+            return false;
+        }
+
         try
         {
-            using var reader = RvzReader.Open(File.OpenRead(inputFile), leaveOpen: false);
-            using var output = File.Create(outputFile);
+            using var input = Blob.Open(inputFile);
 
-            var buffer = new byte[1024 * 1024];
-            long remaining = reader.Length;
-            long position = 0;
-
-            while (remaining > 0)
+            // A file with no recognized container magic opens as a plain blob; reject
+            // anything that is not actually a GameCube/Wii disc so corrupt or renamed
+            // files fall back to DolphinTool instead of being written as garbage.
+            if (!Blob.IsDisc(input))
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                var read = reader.ReadAt(position, buffer.AsSpan(0, (int)Math.Min(buffer.Length, remaining)));
-                if (read <= 0)
-                {
-                    break;
-                }
-
-                output.Write(buffer, 0, read);
-                position += read;
-                remaining -= read;
+                _logger.Information(
+                    "Input {FileName} is not a GameCube/Wii disc image. Falling back to DolphinTool.",
+                    Path.GetFileName(inputFile));
+                return false;
             }
 
-            _logger.Information("Converted to ISO using RVZSharp: {FileName}", Path.GetFileName(inputFile));
+            LogDiscInfo(input, inputFile);
+            using var output = File.Create(outputFile);
+
+            switch (format)
+            {
+                case "iso":
+                    // Parallel full-image decode where the container supports it.
+                    input.CopyTo(output, progress, maxThreads: 0, cancellationToken);
+                    break;
+                case "wia":
+                    WiaWriter.Write(input, output, new RvzWriteOptions
+                    {
+                        Compression = CompressionType.Lzma2,
+                        CompressionLevel = 5,
+                        ChunkSize = 0x200000,
+                        Scrub = scrub
+                    }, progress, cancellationToken);
+                    break;
+                case "gcz":
+                    GczWriter.Write(input, output, new GczWriteOptions
+                    {
+                        Scrub = scrub
+                    }, progress, cancellationToken);
+                    break;
+                case "wbfs":
+                    WbfsWriter.Write(input, output, new WbfsWriteOptions
+                    {
+                        Scrub = scrub
+                    }, progress, cancellationToken);
+                    break;
+                case "ciso":
+                    CisoWriter.Write(input, output, new CisoWriteOptions
+                    {
+                        Scrub = scrub
+                    }, progress, cancellationToken);
+                    break;
+                case "tgc":
+                    TgcWriter.Write(input, output, progress, cancellationToken);
+                    break;
+            }
+
+            _logger.Information("{Message:l}",
+                $"Converted to {format.ToUpperInvariant()} using RVZSharp: {Path.GetFileName(inputFile)}");
             return true;
         }
         catch (OperationCanceledException)
         {
             TryDeletePartialOutput(outputFile);
             throw;
+        }
+        catch (RvzException ex)
+        {
+            // Expected user-input failures: corrupt containers, Wii-only formats on
+            // GameCube discs (WBFS), GameCube-only formats on Wii discs (TGC), ...
+            TryDeletePartialOutput(outputFile);
+            _logger.Information(
+                "RVZSharp could not write {OutputFormat} for {FileName}: {Message}. Falling back to DolphinTool.",
+                format.ToUpperInvariant(), Path.GetFileName(inputFile), ex.Message);
+            return false;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -204,9 +292,150 @@ public class RvzSharpService
         {
             TryDeletePartialOutput(outputFile);
             _logger.Error(ex,
-                "RVZSharp library failed while decoding {FileName}. Falling back to DolphinTool.",
-                Path.GetFileName(inputFile));
+                "RVZSharp library failed while writing {OutputFormat} for {FileName}. Falling back to DolphinTool.",
+                format.ToUpperInvariant(), Path.GetFileName(inputFile));
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Verifies a disc image with the library (Dolphin's volume verifier: partition headers,
+    /// TMD/H3 tables and the h0/h1/h2/h3 hash trees) and logs the decoded image's hashes.
+    /// </summary>
+    /// <param name="inputFile">The input RVZ/WIA file path.</param>
+    /// <param name="progress">Optional progress receiver (fraction in [0, 1]).</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>
+    /// true when the disc verified cleanly; false when verification completed and found
+    /// problems (or the container is damaged); null when the library could not run the
+    /// verification and the caller should fall back to DolphinTool.
+    /// </returns>
+    public bool? TryVerify(string inputFile, IProgress<double>? progress, CancellationToken cancellationToken)
+    {
+        var fileName = Path.GetFileName(inputFile);
+
+        try
+        {
+            using var input = Blob.Open(inputFile);
+
+            if (!Blob.IsDisc(input))
+            {
+                _logger.Information("Verification failed for {FileName}: not a GameCube/Wii disc image.", fileName);
+                return false;
+            }
+
+            LogDiscInfo(input, inputFile);
+
+            var report = DiscVerifier.Verify(input, progress, cancellationToken);
+            LogVerificationReport(report, fileName);
+            LogHashes(input, fileName, progress, cancellationToken);
+
+            return report.IsValid;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (RvzUnsupportedException ex)
+        {
+            // A newer container version: DolphinTool may still support it.
+            _logger.Information(
+                "RVZSharp cannot verify {FileName}: {Message}. Falling back to DolphinTool.",
+                fileName, ex.Message);
+            return null;
+        }
+        catch (RvzException ex)
+        {
+            // A damaged container (format or hash mismatch): the file is corrupt.
+            _logger.Information("Verification failed for {FileName}: {Message}", fileName, ex.Message);
+            return false;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.Information(
+                "RVZSharp could not verify {FileName}: {Message}. Falling back to DolphinTool.",
+                fileName, ex.Message);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "RVZSharp library failed while verifying {FileName}. Falling back to DolphinTool.",
+                fileName);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Logs the disc metadata (game ID, internal name, region and revision) of an opened blob.
+    /// </summary>
+    private void LogDiscInfo(IBlobReader input, string inputFile)
+    {
+        try
+        {
+            var info = DiscInfo.TryRead(input);
+            if (info is null) return;
+
+            _logger.Information("{Message:l}",
+                $"Disc info for {Path.GetFileName(inputFile)}: {info.GameId} \"{info.InternalName}\" ({info.Region}, {info.Country}, rev {info.Revision}).");
+        }
+        catch (Exception ex)
+        {
+            // Metadata is informational only; never fail the operation over it.
+            _logger.Information("{Message:l}", $"Could not read disc info for {Path.GetFileName(inputFile)}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Logs a verification report: per-partition results and every reported issue.
+    /// </summary>
+    private void LogVerificationReport(VerificationReport report, string fileName)
+    {
+        if (report.DiscType == DiscType.GameCube)
+        {
+            _logger.Information("{Message:l}",
+                $"Verified {fileName}: GameCube disc (no partition hash trees).");
+        }
+        else
+        {
+            foreach (var partition in report.Partitions)
+            {
+                _logger.Information("{Message:l}",
+                    $"Partition {partition.Name}: {partition.VerifiedBlocks}/{partition.Blocks} blocks verified, {partition.FailedBlocks} failed, TMD valid: {partition.TmdValid}, H3 table valid: {partition.H3TableValid}.");
+            }
+        }
+
+        foreach (var issue in report.Issues)
+        {
+            _logger.Information("{Message:l}", $"[{issue.Severity}] {issue.Message}");
+        }
+
+        foreach (var issue in report.Partitions.SelectMany(static p => p.Issues))
+        {
+            _logger.Information("{Message:l}", $"[{issue.Severity}] {issue.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Logs the CRC-32, MD5 and SHA-1 of the decoded image (the same digests Dolphin's
+    /// volume verifier reports).
+    /// </summary>
+    private void LogHashes(IBlobReader input, string fileName, IProgress<double>? progress,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var hashes = DiscHasher.Compute(input, progress, cancellationToken);
+            _logger.Information("{Message:l}",
+                $"Hashes for {fileName}: CRC32={hashes.Crc32.ToString("X8", CultureInfo.InvariantCulture)}, MD5={Convert.ToHexString(hashes.Md5)}, SHA1={Convert.ToHexString(hashes.Sha1)}.");
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Hashing is informational only; never fail verification over it.
+            _logger.Information("{Message:l}", $"Could not compute hashes for {fileName}: {ex.Message}");
         }
     }
 
@@ -219,7 +448,11 @@ public class RvzSharpService
         [".wbfs"] = "WBFS"u8.ToArray(),
         [".gcz"] = [0x01, 0xC0, 0x0B, 0xB1],
         [".wia"] = "WIA\x01"u8.ToArray(),
-        [".rvz"] = "RVZ\x01"u8.ToArray()
+        [".rvz"] = "RVZ\x01"u8.ToArray(),
+        [".ciso"] = "CISO"u8.ToArray(),
+        [".wbi"] = "CISO"u8.ToArray(),
+        [".tgc"] = [0xAE, 0x0F, 0x38, 0xA2],
+        [".nfs"] = "EGGS"u8.ToArray()
     };
 
     /// <summary>

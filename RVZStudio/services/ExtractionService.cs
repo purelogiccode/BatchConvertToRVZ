@@ -18,6 +18,17 @@ public class ExtractionService
         "iso",
         "wbfs",
         "gcz",
+        "wia",
+        "ciso",
+        "tgc"
+    };
+
+    // Output formats DolphinTool can write; the others are RVZSharp-only.
+    private static readonly HashSet<string> DolphinToolOutputFormats = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "iso",
+        "wbfs",
+        "gcz",
         "wia"
     };
 
@@ -37,7 +48,8 @@ public class ExtractionService
         Action<int, int, string> updateProgress,
         Action<int> incrementSuccess,
         Action<int> incrementFailure,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IProgress<double>? fileProgress = null)
     {
         if (!ValidOutputFormats.Contains(outputFormat))
         {
@@ -69,12 +81,15 @@ public class ExtractionService
                 var fileName = Path.GetFileName(inputFile);
                 _logger.Information("{Message:l}", $"Processing: {fileName}");
 
+                fileProgress?.Report(0);
+
                 var success = await ProcessFileAsync(
                     dolphinToolPath,
                     inputFile,
                     outputFolder,
                     deleteFiles,
                     outputFormat,
+                    fileProgress,
                     cancellationToken);
 
                 if (success)
@@ -109,6 +124,7 @@ public class ExtractionService
         string outputFolder,
         bool deleteOriginal,
         string outputFormat,
+        IProgress<double>? fileProgress,
         CancellationToken cancellationToken)
     {
         var fileName = Path.GetFileName(inputFile);
@@ -124,6 +140,7 @@ public class ExtractionService
                     outputFolder,
                     deleteOriginal,
                     outputFormat,
+                    fileProgress,
                     cancellationToken);
             }
             else
@@ -134,6 +151,7 @@ public class ExtractionService
                     outputFolder,
                     deleteOriginal,
                     outputFormat,
+                    fileProgress,
                     cancellationToken);
             }
         }
@@ -155,6 +173,7 @@ public class ExtractionService
         string outputFolder,
         bool deleteOriginal,
         string outputFormat,
+        IProgress<double>? fileProgress,
         CancellationToken cancellationToken)
     {
         var archiveFileName = Path.GetFileName(archivePath);
@@ -182,6 +201,7 @@ public class ExtractionService
                     outputFolder,
                     false,
                     outputFormat,
+                    fileProgress,
                     cancellationToken);
 
                 if (success && deleteOriginal)
@@ -420,6 +440,7 @@ public class ExtractionService
         string outputFolder,
         bool deleteOriginal,
         string outputFormat,
+        IProgress<double>? fileProgress,
         CancellationToken cancellationToken)
     {
         var fileName = Path.GetFileName(inputFile);
@@ -452,6 +473,7 @@ public class ExtractionService
                 inputFile,
                 outputFile,
                 outputFormat,
+                fileProgress,
                 cancellationToken);
 
             if (success && deleteOriginal)
@@ -478,15 +500,25 @@ public class ExtractionService
         string inputFile,
         string outputFile,
         string outputFormat,
+        IProgress<double>? fileProgress,
         CancellationToken cancellationToken)
     {
-        // RVZSharp decodes back to the original ISO image only; other output
-        // formats (wbfs, gcz, wia) always go through DolphinTool.
-        if (outputFormat.Equals("iso", StringComparison.OrdinalIgnoreCase)
-            && RvzSharpService.CanDecode(inputFile)
-            && _rvzSharpService.TryDecodeToIso(inputFile, outputFile, cancellationToken))
+        var format = outputFormat.ToLowerInvariant();
+
+        // RVZSharp is the primary engine and writes every supported output format.
+        if (RvzSharpService.CanDecode(inputFile)
+            && _rvzSharpService.TryDecode(inputFile, outputFile, format, scrub: false, fileProgress,
+                cancellationToken))
         {
             return true;
+        }
+
+        // DolphinTool only knows how to write the legacy four formats.
+        if (!DolphinToolOutputFormats.Contains(format))
+        {
+            _logger.Information("{Message:l}",
+                $"RVZSharp could not write {outputFormat.ToUpperInvariant()} for {Path.GetFileName(inputFile)} and DolphinTool does not support it.");
+            return false;
         }
 
         using var process = new Process();

@@ -42,17 +42,18 @@ and the file size. Files are selected by default.
 - **Drag and drop** — drop files directly onto the list to add them. Duplicates are ignored.
   Dropping a folder replaces the input folder and rescans it.
 
-Supported input formats: `.iso`, `.gcm`, `.wbfs`, `.gcz`, `.wia`, `.nkit.iso`, `.zip`, `.7z`,
-`.rar`. Archives are extracted automatically and the disc image inside is converted.
+Supported input formats: `.iso`, `.gcm`, `.wbfs`, `.gcz`, `.wia`, `.ciso`, `.wbi`, `.tgc`, `.nfs`,
+`.nkit.iso`, `.zip`, `.7z`, `.rar`. Archives are extracted automatically and the disc image inside
+is converted.
 
 ### Starting a conversion
 
 Click **Start Conversion**. During the run:
 
 - The **Cancel** button appears next to the progress area.
-- The per-file progress bar is shown as indeterminate while the active file is processed.
+- The per-file progress bar tracks the active file's progress in real time.
 - The overall progress bar fills as files complete.
-- The log viewer streams DolphinTool output live.
+- The log viewer streams messages from the application, RVZSharp and DolphinTool live.
 
 When the batch finishes, a summary dialog reports totals. Files whose output already exists are
 skipped.
@@ -80,10 +81,30 @@ The third tab decodes RVZ files back to other formats.
 3. Configure the options under **General Settings**:
    - **Delete original RVZ files after extraction** — removes the source RVZ after a successful
      extraction.
-   - **Output Format** — one of `ISO`, `WBFS`, `GCZ` or `WIA`.
+   - **Output Format** — one of `ISO`, `WBFS`, `GCZ`, `WIA`, `CISO` or `TGC`.
 4. Click **Start Extraction**.
 
 An overlay is shown if extraction is cancelled while an archive is still being unpacked.
+
+## Explorer
+
+The fourth tab browses the file system inside a disc image without extracting it.
+
+1. Click **Browse…** to pick a disc image (`.iso`, `.rvz`, `.wia`, `.gcz`, `.ciso`, `.wbi`,
+   `.wbfs`, `.tgc` or `.nfs`).
+2. Click **Open** to parse the image. The volume summary shows the container type, decoded size,
+   block size, game ID/title/region, partition and FST location.
+3. Expand folders in the tree and select an entry. The details panel shows its image path, type,
+   size and data offset.
+4. **Copy Out…** extracts the selected file (a save dialog) or the selected folder (a folder
+   dialog, copied recursively) to disk.
+5. **SHA-256** computes the hash of the selected file directly from the image.
+6. For Wii discs with multiple partitions, a **Partition** selector appears to switch between the
+   game, update and channel partitions.
+7. **Refresh** reopens the current image; **Close** releases it.
+
+The explorer reads the image in-process through RVZSharp (the same FST parser Dolphin uses), so
+copy-out writes the decrypted file bytes without converting the whole disc.
 
 ## Progress, statistics and logs
 

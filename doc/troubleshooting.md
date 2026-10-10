@@ -39,18 +39,19 @@ xattr -dr com.apple.quarantine .
 
 ## Conversions fail for some files
 
-- **Check the log viewer** — DolphinTool output is streamed live and usually states the exact
-  reason (corrupt file, unsupported format, not a disc image).
+- **Check the log viewer** — messages from RVZSharp and DolphinTool are streamed live and usually
+  state the exact reason (corrupt file, unsupported format, not a disc image).
 - **Corrupt inputs** — damaged ISOs cannot be converted. Verify the source file.
 - **Archives** — RVZStudio extracts with SharpCompress first and falls back to `7za`. If both
   fail, the archive is likely damaged or password-protected.
 - **RVZSharp fallback** — if the native engine cannot handle a file it automatically uses
-  DolphinTool. A message such as `falling back to DolphinTool` in the log is normal.
+  DolphinTool (when available). A message such as `falling back to DolphinTool` in the log is normal.
 
 ## Verification reports failures
 
-Verification uses DolphinTool's `verify` command. A failure means the RVZ data is damaged or was
-produced by an incompatible tool. Re-convert the original disc image if you still have it.
+Verification runs the native RVZSharp volume verifier first and falls back to DolphinTool's
+`verify` command when needed. A failure means the RVZ data is damaged or was produced by an
+incompatible tool. Re-convert the original disc image if you still have it.
 
 ## "The input and output folders must be different"
 
