@@ -516,13 +516,20 @@ public partial class MainWindow : Window, IDisposable
 
     private async void BrowseInputButton_Click(object? sender, RoutedEventArgs e)
     {
-        var inputFolder = await SelectFolderAsync("Select the folder containing ISO files or archives to convert");
-        if (string.IsNullOrEmpty(inputFolder)) return;
+        try
+        {
+            var inputFolder = await SelectFolderAsync("Select the folder containing ISO files or archives to convert");
+            if (string.IsNullOrEmpty(inputFolder)) return;
 
-        InputFolderTextBox.Text = inputFolder;
-        LogMessage($"Input folder selected: {inputFolder}");
+            InputFolderTextBox.Text = inputFolder;
+            LogMessage($"Input folder selected: {inputFolder}");
 
-        PopulateConversionFilesList(inputFolder);
+            PopulateConversionFilesList(inputFolder);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method BrowseInputButton_Click");
+        }
     }
 
     private void PopulateConversionFilesList(string inputFolder)
@@ -582,11 +589,18 @@ public partial class MainWindow : Window, IDisposable
 
     private async void BrowseOutputButton_Click(object? sender, RoutedEventArgs e)
     {
-        var outputFolder = await SelectFolderAsync("Select the output folder where RVZ files will be saved");
-        if (string.IsNullOrEmpty(outputFolder)) return;
+        try
+        {
+            var outputFolder = await SelectFolderAsync("Select the output folder where RVZ files will be saved");
+            if (string.IsNullOrEmpty(outputFolder)) return;
 
-        OutputFolderTextBox.Text = outputFolder;
-        LogMessage($"Output folder selected: {outputFolder}");
+            OutputFolderTextBox.Text = outputFolder;
+            LogMessage($"Output folder selected: {outputFolder}");
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method BrowseOutputButton_Click");
+        }
     }
 
     private async void StartConversionButton_Click(object? sender, RoutedEventArgs e)
@@ -1011,7 +1025,7 @@ public partial class MainWindow : Window, IDisposable
         catch (Exception ex)
         {
             LogMessage($"Error during batch conversion: {ex.Message}");
-            await ShowMessageBoxAsync($"Error during batch conversion: {ex.Message}", "Error", MessageBoxButton.OK,
+            await ShowMessageBoxAsync($"Error during batch conversion: {ex.Message}", "Error", MessageBoxButton.Ok,
                 MessageBoxImage.Error);
             await ReportBugAsync("Error during batch conversion operation", ex);
         }
@@ -1044,7 +1058,7 @@ public partial class MainWindow : Window, IDisposable
 
     private Task<MessageBoxResult> ShowErrorAsync(string message)
     {
-        return ShowMessageBoxAsync(message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        return ShowMessageBoxAsync(message, "Error", MessageBoxButton.Ok, MessageBoxImage.Error);
     }
 
     /// <summary>
@@ -1146,18 +1160,18 @@ public partial class MainWindow : Window, IDisposable
                 if (isManualCheck)
                 {
                     await ShowMessageBoxAsync("You are already using the latest version.", "No Updates Found",
-                        MessageBoxButton.OK, MessageBoxImage.Information);
+                        MessageBoxButton.Ok, MessageBoxImage.Information);
                 }
             }
         }
-        catch (System.Net.Http.HttpRequestException ex)
+        catch (HttpRequestException ex)
         {
             var errorMessage = $"Failed to check for updates: network error ({ex.Message})";
             LogMessage(errorMessage);
             if (isManualCheck)
             {
                 await ShowMessageBoxAsync("Could not connect to update server. Please check your internet connection.",
-                    "Update Check Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    "Update Check Failed", MessageBoxButton.Ok, MessageBoxImage.Warning);
             }
         }
         catch (TaskCanceledException ex)
@@ -1167,7 +1181,7 @@ public partial class MainWindow : Window, IDisposable
             if (isManualCheck)
             {
                 await ShowMessageBoxAsync("Update check timed out. Please try again later.", "Update Check Failed",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBoxButton.Ok, MessageBoxImage.Warning);
             }
         }
         catch (Exception ex)
@@ -1177,7 +1191,7 @@ public partial class MainWindow : Window, IDisposable
             if (isManualCheck)
             {
                 await ShowMessageBoxAsync($"An error occurred while checking for updates:\n{ex.Message}",
-                    "Update Check Failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                    "Update Check Failed", MessageBoxButton.Ok, MessageBoxImage.Error);
             }
 
             await ReportBugAsync("Failed to check for updates", ex);
@@ -1199,7 +1213,7 @@ public partial class MainWindow : Window, IDisposable
             var errorMessage = $"Error opening URL: {url}. Exception: {ex.Message}";
             LogMessage(errorMessage);
             _ = ReportBugAsync(errorMessage, ex);
-            _ = ShowMessageBoxAsync($"Unable to open link: {ex.Message}", "Error", MessageBoxButton.OK,
+            _ = ShowMessageBoxAsync($"Unable to open link: {ex.Message}", "Error", MessageBoxButton.Ok,
                 MessageBoxImage.Error);
         }
     }
@@ -1285,13 +1299,20 @@ public partial class MainWindow : Window, IDisposable
 
     private async void BrowseVerifyFolderButton_Click(object? sender, RoutedEventArgs e)
     {
-        var verifyFolder = await SelectFolderAsync("Select the folder containing RVZ files to verify");
-        if (string.IsNullOrEmpty(verifyFolder)) return;
+        try
+        {
+            var verifyFolder = await SelectFolderAsync("Select the folder containing RVZ files to verify");
+            if (string.IsNullOrEmpty(verifyFolder)) return;
 
-        VerifyFolderTextBox.Text = verifyFolder;
-        LogMessage($"Verification folder selected: {verifyFolder}");
+            VerifyFolderTextBox.Text = verifyFolder;
+            LogMessage($"Verification folder selected: {verifyFolder}");
 
-        PopulateVerificationFilesList(verifyFolder);
+            PopulateVerificationFilesList(verifyFolder);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method BrowseVerifyFolderButton_Click");
+        }
     }
 
     private void IncludeSubfoldersVerify_Changed(object? sender, RoutedEventArgs e)
@@ -1596,7 +1617,7 @@ public partial class MainWindow : Window, IDisposable
         catch (Exception ex)
         {
             LogMessage($"Error during batch verification: {ex.Message}");
-            await ShowMessageBoxAsync($"Error during batch verification: {ex.Message}", "Error", MessageBoxButton.OK,
+            await ShowMessageBoxAsync($"Error during batch verification: {ex.Message}", "Error", MessageBoxButton.Ok,
                 MessageBoxImage.Error);
             await ReportBugAsync("Error during batch verification operation", ex);
         }
@@ -1779,7 +1800,7 @@ public partial class MainWindow : Window, IDisposable
                                   $"Total files processed: {totalFiles}\n" +
                                   $"Successfully {GetPastTense(operationVerb)}: {successCount} files\n" +
                                   $"Failed: {failureCount} files",
-            $"{operationNoun} Complete", MessageBoxButton.OK,
+            $"{operationNoun} Complete", MessageBoxButton.Ok,
             failureCount > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
     }
 
@@ -1896,13 +1917,20 @@ public partial class MainWindow : Window, IDisposable
 
     private async void BrowseExtractInputButton_Click(object? sender, RoutedEventArgs e)
     {
-        var inputFolder = await SelectFolderAsync("Select the folder containing RVZ files to extract");
-        if (string.IsNullOrEmpty(inputFolder)) return;
+        try
+        {
+            var inputFolder = await SelectFolderAsync("Select the folder containing RVZ files to extract");
+            if (string.IsNullOrEmpty(inputFolder)) return;
 
-        ExtractInputFolderTextBox.Text = inputFolder;
-        LogMessage($"Extraction input folder selected: {inputFolder}");
+            ExtractInputFolderTextBox.Text = inputFolder;
+            LogMessage($"Extraction input folder selected: {inputFolder}");
 
-        PopulateExtractionFilesList(inputFolder);
+            PopulateExtractionFilesList(inputFolder);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method BrowseExtractInputButton_Click");
+        }
     }
 
     private void PopulateExtractionFilesList(string inputFolder)
@@ -1945,11 +1973,18 @@ public partial class MainWindow : Window, IDisposable
 
     private async void BrowseExtractOutputButton_Click(object? sender, RoutedEventArgs e)
     {
-        var outputFolder = await SelectFolderAsync("Select the output folder where ISO files will be saved");
-        if (string.IsNullOrEmpty(outputFolder)) return;
+        try
+        {
+            var outputFolder = await SelectFolderAsync("Select the output folder where ISO files will be saved");
+            if (string.IsNullOrEmpty(outputFolder)) return;
 
-        ExtractOutputFolderTextBox.Text = outputFolder;
-        LogMessage($"Extraction output folder selected: {outputFolder}");
+            ExtractOutputFolderTextBox.Text = outputFolder;
+            LogMessage($"Extraction output folder selected: {outputFolder}");
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method BrowseExtractOutputButton_Click");
+        }
     }
 
     private void SelectAllExtraction_Click(object? sender, RoutedEventArgs e)
@@ -2198,7 +2233,7 @@ public partial class MainWindow : Window, IDisposable
         catch (Exception ex)
         {
             LogMessage($"Error during batch extraction: {ex.Message}");
-            await ShowMessageBoxAsync($"Error during batch extraction: {ex.Message}", "Error", MessageBoxButton.OK,
+            await ShowMessageBoxAsync($"Error during batch extraction: {ex.Message}", "Error", MessageBoxButton.Ok,
                 MessageBoxImage.Error);
             await ReportBugAsync("Error during batch extraction operation", ex);
         }
@@ -2343,7 +2378,7 @@ public partial class MainWindow : Window, IDisposable
             if (fileArray.Length == 0)
             {
                 _ = ShowMessageBoxAsync("No supported files were found in the drop. Please check file extensions.", "Info",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBoxButton.Ok, MessageBoxImage.Information);
                 return;
             }
 

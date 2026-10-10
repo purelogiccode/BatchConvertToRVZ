@@ -32,7 +32,7 @@ public partial class AboutWindow : Window
 
             // Notify user and rethrow to prevent window from opening in invalid state
             _ = MessageBox.ShowAsync(null, $"Error initializing About window: {ex.Message}",
-                "Initialization Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                "Initialization Error", MessageBoxButton.Ok, MessageBoxImage.Error);
             throw;
         }
     }
@@ -67,7 +67,7 @@ public partial class AboutWindow : Window
 
             // Notify user
             _ = MessageBox.ShowAsync(null, $"Unable to open link: {ex.Message}",
-                "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                "Error", MessageBoxButton.Ok, MessageBoxImage.Error);
         }
     }
 

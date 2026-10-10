@@ -10,8 +10,8 @@ namespace RVZStudio.dialogs;
 /// </summary>
 public enum MessageBoxButton
 {
-    OK,
-    OKCancel,
+    Ok,
+    OkCancel,
     YesNo
 }
 
@@ -33,7 +33,7 @@ public enum MessageBoxImage
 public enum MessageBoxResult
 {
     None,
-    OK,
+    Ok,
     Cancel,
     Yes,
     No
@@ -76,11 +76,11 @@ public partial class MessageBoxWindow : Window
 
         switch (button)
         {
-            case MessageBoxButton.OK:
-                AddButton("OK", MessageBoxResult.OK);
+            case MessageBoxButton.Ok:
+                AddButton("OK", MessageBoxResult.Ok);
                 break;
-            case MessageBoxButton.OKCancel:
-                AddButton("OK", MessageBoxResult.OK);
+            case MessageBoxButton.OkCancel:
+                AddButton("OK", MessageBoxResult.Ok);
                 AddButton("Cancel", MessageBoxResult.Cancel);
                 break;
             case MessageBoxButton.YesNo:
@@ -120,7 +120,7 @@ public static class MessageBox
         Window? owner,
         string message,
         string title,
-        MessageBoxButton button = MessageBoxButton.OK,
+        MessageBoxButton button = MessageBoxButton.Ok,
         MessageBoxImage icon = MessageBoxImage.None)
     {
         owner ??= (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)

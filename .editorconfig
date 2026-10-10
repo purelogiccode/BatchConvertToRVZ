@@ -33,6 +33,20 @@ dotnet_diagnostic.MA0006.severity = none
 dotnet_diagnostic.MA0011.severity = none
 dotnet_diagnostic.MA0074.severity = none
 
+# --- JetBrains Rider: Avalonia XAML event handlers ---------------------------
+# Event handlers are wired up from .axaml markup only, so Rider cannot resolve
+# those references and reports the handlers as unused. Every async handler
+# catches its own exceptions, so the async-void inspections are not actionable
+# for these files either.
+
+[AboutWindow.xaml.cs]
+resharper_unused_member_local_highlighting = none
+
+[MainWindow.xaml.cs]
+resharper_unused_member_local_highlighting = none
+resharper_async_void_method_highlighting = none
+resharper_async_void_event_handler_method_highlighting = none
+
 # --- C# code style (matches the existing codebase) ---------------------------
 
 [*.cs]
