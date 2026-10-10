@@ -26,6 +26,8 @@ rebuilt on **Avalonia UI** and now runs on **Windows, Linux and macOS** on both 
   startup, sends anonymous launch statistics and reports unexpected errors to the developer.
 - **Screenshot capture** — press **F8** to save a PNG of the application window.
 - **Donate button** — support development directly from the header.
+- **Compact single-file bundles** — release packages are framework-dependent single-file binaries
+  (the .NET 10 runtime is required) with the helper tools, license, readme and these notes included.
 
 ### Improvements
 

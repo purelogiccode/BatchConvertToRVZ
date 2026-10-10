@@ -8,7 +8,7 @@ This page covers everything you need to install RVZStudio and convert your first
 |-----------|-------------|
 | Operating system | Windows 10 or later, a modern 64-bit Linux distribution, or macOS 11 or later |
 | Architecture | x64 or ARM64 |
-| Runtime | [.NET 10.0 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) — **not required** for the self-contained release builds |
+| Runtime | [.NET 10.0 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) — required for the release builds (framework-dependent single-file) |
 | Helper tools | Optional: `7za` (archive fallback, all platforms) and `DolphinTool` (fallback engine, Windows releases) |
 
 > RVZStudio's primary engine is the built-in **RVZSharp** library (pure managed code). **DolphinTool**

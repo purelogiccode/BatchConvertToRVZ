@@ -54,9 +54,12 @@ The test suite is platform-aware and runs on Windows, Linux and macOS.
 
 ### Using the publish script
 
-`publish.ps1` produces self-contained, single-file builds for every supported platform and creates
-one ZIP per runtime identifier. The helper executables are kept outside the single-file bundle so
-they can be launched as child processes.
+`publish.ps1` produces framework-dependent, single-file builds for every supported platform and
+creates one ZIP per runtime identifier. Each bundle contains the single application binary, the
+helper executables (kept outside the single-file bundle so they can be launched as child
+processes), `LICENSE.txt`, `LICENSE-7zip.txt`, `ReadMe.md` and `WhatsNew.md`. The .NET 10 runtime
+must be installed on the target machine; pass `-SelfContained` for standalone bundles that embed
+the runtime.
 
 ```powershell
 ./publish.ps1
@@ -66,7 +69,7 @@ Results:
 
 ```
 publish/
-├── win-x64/        # RVZStudio.exe + helper tools
+├── win-x64/        # RVZStudio.exe + helper tools + license/readme/notes
 ├── win-arm64/
 ├── linux-x64/
 ├── linux-arm64/
@@ -86,7 +89,7 @@ Useful switches:
 |--------|--------|
 | `-Rids win-x64,linux-x64` | Publish only the listed runtime identifiers. |
 | `-Configuration Debug` | Publish a debug build. |
-| `-FrameworkDependent` | Publish framework-dependent instead of self-contained. |
+| `-SelfContained` | Embed the .NET runtime (larger bundles, no runtime required). |
 | `-NoZip` | Skip ZIP creation. |
 
 ### Manual publish
@@ -95,33 +98,17 @@ Useful switches:
 dotnet publish RVZStudio/RVZStudio.csproj \
     -c Release \
     -r linux-x64 \
-    --self-contained true \
+    --self-contained false \
     -p:PublishSingleFile=true \
     -p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
+Add `--self-contained true` to embed the .NET runtime instead. The bundle name follows the release
+convention `release_<version>_<rid>.zip`, and the `7za` archive fallback (plus `DolphinTool` on
+Windows) is copied automatically by the build.
+
 Supported runtime identifiers: `win-x64`, `win-arm64`, `linux-x64`, `linux-arm64`, `osx-x64`,
 `osx-arm64`.
-
-### Framework-dependent bundles
-
-For a smaller package that requires the .NET 10 runtime on the target machine, publish
-framework-dependent single-file builds and add the license, readme and What's New files next to the
-binary:
-
-```powershell
-dotnet publish RVZStudio/RVZStudio.csproj -c Release -r win-x64 `
-    --self-contained false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
-    -o RVZStudio/bin/Release/release_2.5.0_win-x64
-
-Copy-Item LICENSE.txt, ReadMe.md RVZStudio/bin/Release/release_2.5.0_win-x64
-Copy-Item docs/WhatsNew.md RVZStudio/bin/Release/release_2.5.0_win-x64/WhatsNew.md
-Compress-Archive -Path RVZStudio/bin/Release/release_2.5.0_win-x64/* `
-    -DestinationPath RVZStudio/bin/Release/release_2.5.0_win-x64.zip
-```
-
-The bundle name follows the release convention `release_<version>_<rid>.zip`, and the `7za`
-archive fallback (plus `DolphinTool` on Windows) is copied automatically by the build.
 
 ## Continuous integration
 

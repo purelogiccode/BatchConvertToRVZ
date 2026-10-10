@@ -176,7 +176,7 @@ RVZ integrity:
 
 ## Requirements
 
-- **Runtime**: [.NET 10.0 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (not required for the self-contained release builds)
+- **Runtime**: [.NET 10.0 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (required — release packages are framework-dependent single-file builds)
 - **Operating System**: Windows 10 or later, a modern Linux distribution, or macOS (x64 or ARM64)
 - **Dependencies**: The built-in RVZSharp engine requires no external tools. Release packages bundle the 7-Zip `7za` console tool on every platform and the optional DolphinTool fallbacks on Windows:
   - Windows: `DolphinTool.exe` / `DolphinTool_arm64.exe` and `7za.exe` / `7za_arm64.exe`
@@ -328,10 +328,12 @@ publish.ps1                  # Multi-platform publish script
 See the [Building guide](docs/building.md) for full instructions.
 
 ### Publishing
-The `publish.ps1` script produces self-contained, single-file builds for every supported platform
-(`win-x64`, `win-arm64`, `linux-x64`, `linux-arm64`, `osx-x64`, `osx-arm64`) into the `publish/`
-folder. The DolphinTool/7za helper executables are placed next to the application binary so they
-can be launched as child processes.
+The `publish.ps1` script produces framework-dependent, single-file builds for every supported
+platform (`win-x64`, `win-arm64`, `linux-x64`, `linux-arm64`, `osx-x64`, `osx-arm64`) into the
+`publish/` folder and packages each one as `release_<version>_<rid>.zip` with the license, readme
+and What's New files. The DolphinTool/7za helper executables are placed next to the application
+binary so they can be launched as child processes. Pass `-SelfContained` to embed the .NET runtime
+instead (larger bundles, no runtime required on the target machine).
 
 ```powershell
 ./publish.ps1
@@ -340,7 +342,7 @@ can be launched as child processes.
 A single target can also be published manually:
 ```bash
 dotnet publish RVZStudio/RVZStudio.csproj -c Release -r linux-x64 \
-    --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+    --self-contained false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
 ### Continuous Integration
