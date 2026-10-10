@@ -90,7 +90,8 @@ jobs:
         env:
           # A classic PAT with the "repo" scope in a WIKI_TOKEN secret is recommended because
           # the default GITHUB_TOKEN may not be allowed to push to the wiki repository.
-          WIKI_TOKEN: ${{ secrets.WIKI_TOKEN || secrets.GITHUB_TOKEN }}
+          # github.token works both for standalone runs and when called from the Release workflow.
+          WIKI_TOKEN: ${{ secrets.WIKI_TOKEN || github.token }}
           REPO: ${{ github.repository }}
           BRANCH: ${{ github.event.repository.default_branch || 'master' }}
         run: |
