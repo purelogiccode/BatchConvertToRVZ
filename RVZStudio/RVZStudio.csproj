@@ -41,7 +41,7 @@
         <PackageReference Include="Serilog" Version="4.4.0" />
         <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
         <PackageReference Include="SharpCompress" Version="0.50.5" />
-        <PackageReference Include="Meziantou.Analyzer" Version="3.0.296">
+        <PackageReference Include="Meziantou.Analyzer" Version="3.0.297">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
         </PackageReference>
