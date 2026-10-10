@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using RVZStudio.Models;
 
 namespace RVZStudio.dialogs;
@@ -137,6 +138,13 @@ public static class MessageBox
     {
         try
         {
+            // Windows and controls must be created on the UI thread; callers such as the
+            // batch operations resume on thread-pool threads, so marshal when needed.
+            if (!Dispatcher.UIThread.CheckAccess())
+            {
+                return await Dispatcher.UIThread.InvokeAsync(() => ShowAsync(owner, message, title, button, icon));
+            }
+
             owner ??= (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
                 ?.MainWindow;
 

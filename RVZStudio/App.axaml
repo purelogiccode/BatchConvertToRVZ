@@ -81,6 +81,11 @@
             <SolidColorBrush x:Key="ExitButtonHoverBrush" Color="#00e5ff" />
             <SolidColorBrush x:Key="ExitButtonPressedBrush" Color="#008ba3" />
 
+            <!-- Donate Button -->
+            <SolidColorBrush x:Key="DonateButtonBrush" Color="#e53935" />
+            <SolidColorBrush x:Key="DonateButtonHoverBrush" Color="#ef5350" />
+            <SolidColorBrush x:Key="DonateButtonPressedBrush" Color="#b71c1c" />
+
             <!-- Disabled State -->
             <SolidColorBrush x:Key="DisabledButtonBrush" Color="#3d454f" />
             <SolidColorBrush x:Key="DisabledTextBrush" Color="#6e7681" />
@@ -167,6 +172,17 @@
                 </Style>
                 <Style Selector="^:pressed /template/ Border#PART_Border">
                     <Setter Property="Background" Value="{StaticResource CancelButtonPressedBrush}" />
+                </Style>
+            </ControlTheme>
+
+            <!-- Donate Button Theme -->
+            <ControlTheme x:Key="DonateButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
+                <Setter Property="Background" Value="{StaticResource DonateButtonBrush}" />
+                <Style Selector="^:pointerover /template/ Border#PART_Border">
+                    <Setter Property="Background" Value="{StaticResource DonateButtonHoverBrush}" />
+                </Style>
+                <Style Selector="^:pressed /template/ Border#PART_Border">
+                    <Setter Property="Background" Value="{StaticResource DonateButtonPressedBrush}" />
                 </Style>
             </ControlTheme>
 

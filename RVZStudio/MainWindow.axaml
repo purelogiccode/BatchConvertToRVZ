@@ -24,6 +24,12 @@
                             <TextBlock Text="Updates" Foreground="{StaticResource ButtonTextDarkBrush}" VerticalAlignment="Center" ToolTip.Tip="Check for application updates" />
                         </StackPanel>
                     </Button>
+                    <Button Click="DonateButton_Click" Theme="{StaticResource DonateButtonStyle}" ToolTip.Tip="Support the project with a donation">
+                        <StackPanel Orientation="Horizontal" ToolTip.Tip="Support the project with a donation">
+                            <Image Source="avares://RVZStudio/images/donate.png" Width="16" Height="16" Margin="0,0,5,0" ToolTip.Tip="Donate icon" />
+                            <TextBlock Text="Donate" Foreground="{StaticResource ButtonTextDarkBrush}" VerticalAlignment="Center" ToolTip.Tip="Support the project with a donation" />
+                        </StackPanel>
+                    </Button>
                     <Button Click="AboutMenuItem_Click" Theme="{StaticResource ActionButtonStyle}" Background="{StaticResource AboutButtonBrush}" ToolTip.Tip="View application information and acknowledgements">
                         <StackPanel Orientation="Horizontal" ToolTip.Tip="View application information and acknowledgements">
                             <Image Source="avares://RVZStudio/images/about.png" Width="16" Height="16" Margin="0,0,5,0" ToolTip.Tip="About icon" />
@@ -48,7 +54,7 @@
                 <ColumnDefinition Width="*" MinWidth="300" />   <!-- 2: Right Column - Log Viewer -->
             </Grid.ColumnDefinitions>
 
-            <TabControl Grid.Column="0" Grid.Row="0" x:Name="MainTabControl" Background="Transparent" BorderThickness="0" VerticalAlignment="Stretch" Padding="0" ToolTip.Tip="Conversion, verification, extraction and explorer tools">
+            <TabControl Grid.Column="0" Grid.Row="0" x:Name="MainTabControl" Background="Transparent" BorderThickness="0" VerticalAlignment="Stretch" Padding="0" SelectionChanged="MainTabControl_SelectionChanged" ToolTip.Tip="Conversion, verification, extraction and explorer tools">
                 <TabItem Header="Convert to RVZ" ToolTip.Tip="Batch convert GameCube/Wii ISO images to RVZ">
                     <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="0,0,6,6" Padding="15" VerticalAlignment="Stretch" ToolTip.Tip="Batch conversion controls">
                         <Grid VerticalAlignment="Stretch" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" ToolTip.Tip="Batch conversion controls">
@@ -233,7 +239,7 @@
                     </Border>
                 </TabItem>
 
-                <TabItem Header="Explorer" ToolTip.Tip="Browse the contents of a disc image without extracting it">
+                <TabItem x:Name="ExplorerTabItem" Header="Disc Explorer" ToolTip.Tip="Browse the contents of a disc image without extracting it">
                     <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="0,0,6,6" Padding="15" VerticalAlignment="Stretch" ToolTip.Tip="Disc image explorer controls">
                         <Grid RowDefinitions="Auto,Auto,*,Auto" ToolTip.Tip="Disc image explorer controls">
 
@@ -308,7 +314,7 @@
                           ToolTip.Tip="Drag to resize the tools and log panels" />
 
             <!-- Log Viewer -->
-            <Border Grid.Column="2" Grid.Row="0" BorderBrush="{StaticResource TerminalBorderBrush}" BorderThickness="2" CornerRadius="4" Background="{StaticResource TerminalBackgroundBrush}" ToolTip.Tip="Application activity log viewer">
+            <Border x:Name="LogViewerPanel" Grid.Column="2" Grid.Row="0" BorderBrush="{StaticResource TerminalBorderBrush}" BorderThickness="2" CornerRadius="4" Background="{StaticResource TerminalBackgroundBrush}" ToolTip.Tip="Application activity log viewer">
                 <Border.Effect>
                     <DropShadowEffect OffsetX="0" OffsetY="0" Color="{StaticResource TerminalGlowColor}" BlurRadius="2" Opacity="0.4" />
                 </Border.Effect>

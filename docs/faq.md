@@ -67,15 +67,9 @@ change the controls for that run. Logs are stored in the platform-specific locat
 No. Only one operation (conversion, verification or extraction) can run at a time; the other
 actions are disabled until it finishes. Click **Cancel** to stop the current operation.
 
-### Why do some links and identifiers still say "BatchConvertToRVZ"?
-
-`BatchConvertToRVZ` is the canonical GitHub repository name and the identifier used by the
-developer's update, statistics and bug-report services. It is kept stable so that update checks,
-release downloads and telemetry continue to work across the RVZStudio rebrand.
-
 ### Where can I report bugs or request features?
 
-Open an issue at <https://github.com/purelogiccode/BatchConvertToRVZ/issues>. Include your OS,
+Open an issue at <https://github.com/purelogiccode/RVZStudio/issues>. Include your OS,
 RVZStudio version and the relevant log output.
 
 ### How can I support the project?

@@ -13,7 +13,7 @@ changes and follow the project conventions.
 
 ## Reporting issues
 
-Open an issue at <https://github.com/purelogiccode/BatchConvertToRVZ/issues> and include:
+Open an issue at <https://github.com/purelogiccode/RVZStudio/issues> and include:
 
 1. **Environment** — operating system, architecture and RVZStudio version (About window).
 2. **Steps to reproduce** — the exact sequence that triggers the problem.

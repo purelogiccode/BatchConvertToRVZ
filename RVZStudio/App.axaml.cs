@@ -18,12 +18,12 @@ public class App : Application
     // Bug Report API configuration
     private const string BugReportApiUrl = "https://www.purelogiccode.com/bugreport/api/send-bug-report";
     private const string BugReportApiKey = "hjh7yu6t56tyr540o9u8767676r5674534453235264c75b6t7ggghgg76trf564e";
-    private const string ApplicationName = "BatchConvertToRVZ";
+    private const string ApplicationName = "RVZStudio";
 
     // Stats API configuration
     private const string StatsApiUrl = "https://www.purelogiccode.com/ApplicationStats/stats";
     private const string StatsApiKey = "hjh7yu6t56tyr540o9u8767676r5674534453235264c75b6t7ggghgg76trf564e";
-    private const string StatsApplicationId = "BatchConvertToRVZ";
+    private const string StatsApplicationId = "RVZStudio";
 
     /// <summary>
     /// Gets the application-wide bug report service, or null before the application is initialized.

@@ -38,7 +38,7 @@ images back to ISO, WBFS, GCZ, WIA, CISO or TGC. It runs on **Windows, Linux and
 
 ## External links
 
-- **Releases & source code**: <https://github.com/purelogiccode/BatchConvertToRVZ>
+- **Releases & source code**: <https://github.com/purelogiccode/RVZStudio>
 - **Website**: <https://www.purelogiccode.com>
 - **Dolphin Emulator** (DolphinTool): <https://dolphin-emu.org/>
 - **SharpCompress**: <https://github.com/adamhathcock/sharpcompress>

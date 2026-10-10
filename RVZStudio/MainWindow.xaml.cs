@@ -42,7 +42,7 @@ public partial class MainWindow : Window, IDisposable
     private readonly ObservableCollection<ExplorerTreeNode> _explorerRoots = new();
     private bool _isExplorerBusy;
 
-    private const string GitHubApiUrl = "https://api.github.com/repos/purelogiccode/BatchConvertToRVZ/releases/latest";
+    private const string GitHubApiUrl = "https://api.github.com/repos/purelogiccode/RVZStudio/releases/latest";
 
     // Compression settings (now instance variables to allow user configuration)
     private string _rvzCompressionMethod = "zstd"; // Default compression method
@@ -763,6 +763,21 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
+    private void MainTabControl_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        try
+        {
+            var isExplorerTab = ReferenceEquals(MainTabControl.SelectedItem, ExplorerTabItem);
+            LogViewerPanel.IsVisible = !isExplorerTab;
+            Splitter.IsVisible = !isExplorerTab;
+            Grid.SetColumnSpan(MainTabControl, isExplorerTab ? 3 : 1);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method MainTabControl_SelectionChanged");
+        }
+    }
+
     private async Task SetControlsStateAsync(bool enabled)
     {
         // Use InvokeAsync to prevent UI freeze while ensuring UI updates complete.
@@ -1087,6 +1102,18 @@ public partial class MainWindow : Window, IDisposable
         catch (Exception ex)
         {
             Log.Error(ex, "Error in method ExitMenuItem_Click");
+        }
+    }
+
+    private void DonateButton_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            OpenUrl("https://www.purelogiccode.com/donate");
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method DonateButton_Click");
         }
     }
 

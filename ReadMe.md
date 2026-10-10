@@ -1,9 +1,9 @@
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS%20x64%20%7C%20ARM64-blue)](https://github.com/purelogiccode/BatchConvertToRVZ/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS%20x64%20%7C%20ARM64-blue)](https://github.com/purelogiccode/RVZStudio/releases)
 [![.NET 10.0](https://img.shields.io/badge/.NET-10.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
 [![Avalonia](https://img.shields.io/badge/UI-Avalonia-purple.svg)](https://avaloniaui.net/)
-[![CI](https://github.com/purelogiccode/BatchConvertToRVZ/actions/workflows/ci.yml/badge.svg)](https://github.com/purelogiccode/BatchConvertToRVZ/actions/workflows/ci.yml)
+[![CI](https://github.com/purelogiccode/RVZStudio/actions/workflows/ci.yml/badge.svg)](https://github.com/purelogiccode/RVZStudio/actions/workflows/ci.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
-[![GitHub release](https://img.shields.io/github/v/release/purelogiccode/BatchConvertToRVZ)](https://github.com/purelogiccode/BatchConvertToRVZ/releases)
+[![GitHub release](https://img.shields.io/github/v/release/purelogiccode/RVZStudio)](https://github.com/purelogiccode/RVZStudio/releases)
 
 # RVZStudio
 
@@ -167,7 +167,7 @@ RVZ integrity:
 
 ## Installation
 
-1. Download the latest release for your platform from the [Releases page](https://github.com/purelogiccode/BatchConvertToRVZ/releases)
+1. Download the latest release for your platform from the [Releases page](https://github.com/purelogiccode/RVZStudio/releases)
 2. Extract the archive to a folder of your choice
 3. Run `RVZStudio.exe` (Windows) or `./RVZStudio` (Linux/macOS)
 
@@ -355,7 +355,7 @@ dotnet test
 ### ⭐ Give us a Star!
 If you find this application useful, please consider giving us a star on GitHub! It helps others discover the project and motivates us to continue improving it.
 
-[⭐ Star this project on GitHub](https://github.com/purelogiccode/BatchConvertToRVZ)
+[⭐ Star this project on GitHub](https://github.com/purelogiccode/RVZStudio)
 
 ### 💖 Support Development
 This application is developed and maintained for free. If you'd like to support continued development and new features, consider making a donation:

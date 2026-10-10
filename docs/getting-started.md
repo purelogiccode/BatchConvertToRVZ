@@ -30,7 +30,7 @@ RVZStudio locates the helper tools next to the application binary. The expected 
 ### Windows
 
 1. Download `release_<version>_win-x64.zip` or `release_<version>_win-arm64.zip` from the
-   [Releases page](https://github.com/purelogiccode/BatchConvertToRVZ/releases).
+   [Releases page](https://github.com/purelogiccode/RVZStudio/releases).
 2. Extract the archive to a permanent folder (avoid running directly from an archiver's
    temporary folder).
 3. Run `RVZStudio.exe`.

@@ -95,7 +95,7 @@ next to the application binary.
 
 ## Nothing helped
 
-Report the issue at <https://github.com/purelogiccode/BatchConvertToRVZ/issues> and include:
+Report the issue at <https://github.com/purelogiccode/RVZStudio/issues> and include:
 
 1. Operating system and architecture.
 2. The RVZStudio version (About window).

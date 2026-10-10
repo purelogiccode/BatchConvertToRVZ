@@ -13,8 +13,8 @@ The repository pins the SDK through `global.json` (`10.0.0`, rolling forward to 
 ## Clone and build
 
 ```bash
-git clone https://github.com/purelogiccode/BatchConvertToRVZ.git
-cd BatchConvertToRVZ
+git clone https://github.com/purelogiccode/RVZStudio.git
+cd RVZStudio
 dotnet build RVZStudio.sln -c Release
 ```
 
