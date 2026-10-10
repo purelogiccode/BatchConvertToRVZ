@@ -39,7 +39,7 @@ public partial class MainWindow : Window, IDisposable
     private readonly ScreenshotService _screenshotService;
     private readonly DiscExplorerService _discExplorerService;
     private DiscExplorerSession? _explorerSession;
-    private readonly ObservableCollection<Models.ExplorerTreeNode> _explorerRoots = new();
+    private readonly ObservableCollection<ExplorerTreeNode> _explorerRoots = new();
     private bool _isExplorerBusy;
 
     private const string GitHubApiUrl = "https://api.github.com/repos/purelogiccode/BatchConvertToRVZ/releases/latest";
@@ -84,9 +84,9 @@ public partial class MainWindow : Window, IDisposable
     private OperationType _currentOperation = OperationType.None;
 
     // File lists for UI
-    private readonly ObservableCollection<Models.FileItem> _conversionFiles = new();
-    private readonly ObservableCollection<Models.FileItem> _verificationFiles = new();
-    private readonly ObservableCollection<Models.FileItem> _extractionFiles = new();
+    private readonly ObservableCollection<FileItem> _conversionFiles = new();
+    private readonly ObservableCollection<FileItem> _verificationFiles = new();
+    private readonly ObservableCollection<FileItem> _extractionFiles = new();
 
     private void UpdateOverallProgress()
     {
@@ -532,7 +532,7 @@ public partial class MainWindow : Window, IDisposable
             foreach (var file in files)
             {
                 var fileInfo = new FileInfo(file);
-                _conversionFiles.Add(new Models.FileItem
+                _conversionFiles.Add(new FileItem
                 {
                     FileName = Path.GetFileName(file),
                     FullPath = file,
@@ -1373,7 +1373,7 @@ public partial class MainWindow : Window, IDisposable
             foreach (var file in files)
             {
                 var fileInfo = new FileInfo(file);
-                _verificationFiles.Add(new Models.FileItem
+                _verificationFiles.Add(new FileItem
                 {
                     FileName = Path.GetFileName(file),
                     FullPath = file,
@@ -1407,7 +1407,7 @@ public partial class MainWindow : Window, IDisposable
     /// <summary>
     /// Sets the <see cref="Models.FileItem.IsSelected"/> flag of every item in a file list.
     /// </summary>
-    private static void SetAllSelected(IEnumerable<Models.FileItem> files, bool isSelected)
+    private static void SetAllSelected(IEnumerable<FileItem> files, bool isSelected)
     {
         foreach (var file in files)
         {
@@ -2066,7 +2066,7 @@ public partial class MainWindow : Window, IDisposable
             foreach (var file in files)
             {
                 var fileInfo = new FileInfo(file);
-                _extractionFiles.Add(new Models.FileItem
+                _extractionFiles.Add(new FileItem
                 {
                     FileName = Path.GetFileName(file),
                     FullPath = file,
@@ -2623,7 +2623,7 @@ public partial class MainWindow : Window, IDisposable
                 }
 
                 var fileInfo = new FileInfo(file);
-                fileList.Add(new Models.FileItem
+                fileList.Add(new FileItem
                 {
                     FileName = Path.GetFileName(file),
                     FullPath = file,
@@ -2823,7 +2823,7 @@ public partial class MainWindow : Window, IDisposable
     {
         try
         {
-            UpdateExplorerSelection(ExplorerTreeView.SelectedItem as Models.ExplorerTreeNode);
+            UpdateExplorerSelection(ExplorerTreeView.SelectedItem as ExplorerTreeNode);
         }
         catch (Exception ex)
         {
@@ -2837,7 +2837,7 @@ public partial class MainWindow : Window, IDisposable
         {
             var session = _explorerSession;
             if (session is null || _isExplorerBusy ||
-                ExplorerTreeView.SelectedItem is not Models.ExplorerTreeNode { IsDummy: false } node ||
+                ExplorerTreeView.SelectedItem is not ExplorerTreeNode { IsDummy: false } node ||
                 node.Data is null)
             {
                 return;
@@ -2897,7 +2897,7 @@ public partial class MainWindow : Window, IDisposable
         {
             var session = _explorerSession;
             if (session is null || _isExplorerBusy ||
-                ExplorerTreeView.SelectedItem is not Models.ExplorerTreeNode { IsDummy: false, IsDirectory: false } node ||
+                ExplorerTreeView.SelectedItem is not ExplorerTreeNode { IsDummy: false, IsDirectory: false } node ||
                 node.Data is null)
             {
                 return;
@@ -2949,7 +2949,7 @@ public partial class MainWindow : Window, IDisposable
 
         foreach (var child in _explorerSession.ListChildren(null))
         {
-            _explorerRoots.Add(new Models.ExplorerTreeNode(child));
+            _explorerRoots.Add(new ExplorerTreeNode(child));
         }
     }
 
@@ -2970,7 +2970,7 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
-    private void UpdateExplorerSelection(Models.ExplorerTreeNode? node)
+    private void UpdateExplorerSelection(ExplorerTreeNode? node)
     {
         ExplorerHashText.Text = string.Empty;
 
@@ -2998,8 +2998,8 @@ public partial class MainWindow : Window, IDisposable
         _isExplorerBusy = busy;
 
         var hasSession = _explorerSession is not null;
-        var hasNode = ExplorerTreeView.SelectedItem is Models.ExplorerTreeNode { IsDummy: false };
-        var isFile = ExplorerTreeView.SelectedItem is Models.ExplorerTreeNode { IsDummy: false, IsDirectory: false };
+        var hasNode = ExplorerTreeView.SelectedItem is ExplorerTreeNode { IsDummy: false };
+        var isFile = ExplorerTreeView.SelectedItem is ExplorerTreeNode { IsDummy: false, IsDirectory: false };
 
         BrowseExplorerImageButton.IsEnabled = !busy;
         OpenExplorerImageButton.IsEnabled = !busy;

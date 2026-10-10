@@ -376,6 +376,7 @@ public sealed class DiscExplorerSession : IDisposable
     /// <summary>Write-only stream that feeds every byte into an <see cref="IncrementalHash"/>.</summary>
     private sealed class HashingStream(IncrementalHash hash) : Stream
     {
+        private readonly IncrementalHash _hash = hash;
         public override bool CanRead => false;
         public override bool CanSeek => false;
         public override bool CanWrite => true;
@@ -397,8 +398,8 @@ public sealed class DiscExplorerSession : IDisposable
 
         public override void SetLength(long value) => throw new NotSupportedException();
 
-        public override void Write(byte[] buffer, int offset, int count) => hash.AppendData(buffer, offset, count);
+        public override void Write(byte[] buffer, int offset, int count) => _hash.AppendData(buffer, offset, count);
 
-        public override void Write(ReadOnlySpan<byte> buffer) => hash.AppendData(buffer);
+        public override void Write(ReadOnlySpan<byte> buffer) => _hash.AppendData(buffer);
     }
 }

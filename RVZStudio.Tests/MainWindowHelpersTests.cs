@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using RVZStudio;
 using Xunit;
 
 namespace RVZStudio.Tests;
