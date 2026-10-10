@@ -192,7 +192,8 @@ RVZStudio/
 ├── services/                # Conversion, verification, extraction, logging, HTTP services
 ├── models/                  # FileItem, GitHubRelease, SystemInfo
 ├── icon/                    # Application icons
-└── images/                  # UI images
+├── images/                  # UI images
+└── tools/                   # Bundled 7za binaries per runtime identifier
 ```
 
 ## Related pages

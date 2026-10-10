@@ -82,6 +82,15 @@
                                ToolTip.Tip="Open SharpCompress GitHub repository" />
                     <TextBlock Text=" for .zip, .7z and .rar archive extraction." TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" ToolTip.Tip="SharpCompress credit" />
                 </WrapPanel>
+                <WrapPanel Margin="0,0,0,8" ToolTip.Tip="7-Zip credit">
+                    <TextBlock Text="• Bundles " TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" ToolTip.Tip="7-Zip credit" />
+                    <TextBlock Text="7-Zip (7za)" FontWeight="Bold" Cursor="Hand"
+                               Tag="https://www.7-zip.org/"
+                               PointerPressed="Hyperlink_RequestNavigate"
+                               Foreground="{StaticResource PrimaryAccentBrush}"
+                               ToolTip.Tip="Open 7-Zip website" />
+                    <TextBlock Text=" as a fallback when SharpCompress cannot extract an archive." TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" ToolTip.Tip="7-Zip credit" />
+                </WrapPanel>
                 <WrapPanel Margin="0,0,0,8" ToolTip.Tip="Serilog credit">
                     <TextBlock Text="• Uses " TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" ToolTip.Tip="Serilog credit" />
                     <TextBlock Text="Serilog" FontWeight="Bold" Cursor="Hand"

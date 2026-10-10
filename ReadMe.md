@@ -347,6 +347,7 @@ dotnet test
 - **DolphinTool**: Uses `DolphinTool` from the [Dolphin Emulator project](https://dolphin-emu.org/) as a fallback for RVZ conversion, extraction and verification.
 - **RVZSharp**: Uses the [RVZSharp](https://github.com/purelogiccode/RVZSharp) library as the primary engine for native disc image encoding, decoding and verification.
 - **SharpCompress**: Uses the [SharpCompress](https://github.com/adamhathcock/sharpcompress) library for reliable archive extraction.
+- **7-Zip**: Bundles the `7za` console tool from [7-Zip](https://www.7-zip.org/) as a fallback when SharpCompress cannot extract an archive.
 - **Serilog**: Uses [Serilog](https://serilog.net/) for structured logging with custom sinks.
 - **Development**: Created and maintained by [Pure Logic Code](https://www.purelogiccode.com)
 

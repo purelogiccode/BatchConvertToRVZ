@@ -31,8 +31,9 @@ The solution contains two projects:
 dotnet run --project RVZStudio/RVZStudio.csproj
 ```
 
-The optional fallback executables (`DolphinTool*`, `7za*`) are copied automatically from the
-project folder to the output directory by the build; the application runs without them using the
+The optional fallback executables (`DolphinTool*`, `7za*`) are copied automatically to the output
+directory by the build; `7za` binaries live in `tools/<rid>/` and only the one matching the target
+runtime (or the host OS for RID-less builds) is copied. The application runs without them using the
 built-in RVZSharp engine.
 
 ## Test
