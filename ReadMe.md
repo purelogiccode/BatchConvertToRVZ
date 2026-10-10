@@ -2,8 +2,19 @@
 [![.NET 10.0](https://img.shields.io/badge/.NET-10.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
 [![Avalonia](https://img.shields.io/badge/UI-Avalonia-purple.svg)](https://avaloniaui.net/)
 [![CI](https://github.com/purelogiccode/RVZStudio/actions/workflows/ci.yml/badge.svg)](https://github.com/purelogiccode/RVZStudio/actions/workflows/ci.yml)
+[![Release](https://github.com/purelogiccode/RVZStudio/actions/workflows/release.yml/badge.svg)](https://github.com/purelogiccode/RVZStudio/actions/workflows/release.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
 [![GitHub release](https://img.shields.io/github/v/release/purelogiccode/RVZStudio)](https://github.com/purelogiccode/RVZStudio/releases)
+[![Downloads](https://img.shields.io/github/downloads/purelogiccode/RVZStudio/total)](https://github.com/purelogiccode/RVZStudio/releases)
+[![Release date](https://img.shields.io/github/release-date/purelogiccode/RVZStudio)](https://github.com/purelogiccode/RVZStudio/releases)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://purelogiccode.github.io/RVZStudio/)
+[![Wiki](https://img.shields.io/badge/wiki-available-blue?logo=github)](https://github.com/purelogiccode/RVZStudio/wiki)
+[![Last commit](https://img.shields.io/github/last-commit/purelogiccode/RVZStudio)](https://github.com/purelogiccode/RVZStudio/commits/master)
+[![Stars](https://img.shields.io/github/stars/purelogiccode/RVZStudio)](https://github.com/purelogiccode/RVZStudio/stargazers)
+[![Forks](https://img.shields.io/github/forks/purelogiccode/RVZStudio)](https://github.com/purelogiccode/RVZStudio/forks)
+[![Issues](https://img.shields.io/github/issues/purelogiccode/RVZStudio)](https://github.com/purelogiccode/RVZStudio/issues)
+[![Contributors](https://img.shields.io/github/contributors/purelogiccode/RVZStudio)](https://github.com/purelogiccode/RVZStudio/graphs/contributors)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/purelogiccode/RVZStudio/pulls)
 
 # RVZStudio
 
