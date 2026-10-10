@@ -32,7 +32,7 @@ public class VerificationService
     /// <param name="files">The RVZ file paths to verify.</param>
     /// <param name="moveFailed">Whether to move failed files into a "_Failed" subfolder.</param>
     /// <param name="moveSuccess">Whether to move successful files into a "_Success" subfolder.</param>
-    /// <param name="updateProgress">Receives (processed, total, currentFileName) after each file.</param>
+    /// <param name="updateProgress">Receives (processed, total, currentFilePath) after each file.</param>
     /// <param name="incrementSuccess">Called with the number of newly succeeded files.</param>
     /// <param name="incrementFailure">Called with the number of newly failed files.</param>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
@@ -68,6 +68,7 @@ public class VerificationService
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                // ReSharper disable once UnusedVariable
                 var fileName = Path.GetFileName(inputFile);
                 var baseFolder = Path.GetDirectoryName(inputFile) ?? string.Empty;
 
@@ -92,7 +93,7 @@ public class VerificationService
                 }
 
                 filesProcessedCount++;
-                updateProgress(filesProcessedCount, totalFilesToProcess, fileName);
+                updateProgress(filesProcessedCount, totalFilesToProcess, inputFile);
             }
         }
         catch (OperationCanceledException)
@@ -260,18 +261,8 @@ public class VerificationService
         catch (OperationCanceledException)
         {
             _logger.Information("{Message:l}", $"Verification canceled: {fileName}");
-            try
-            {
-                if (!process.HasExited)
-                {
-                    process.Kill(true);
-                }
-            }
-            catch
-            {
-                // The process may not have started (or already exited): HasExited/Kill
-                // throw InvalidOperationException when no process is associated.
-            }
+            ProcessHelper.TryKillProcess(process);
+            throw;
         }
         catch (Exception ex)
         {

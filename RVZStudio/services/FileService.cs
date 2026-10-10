@@ -121,10 +121,11 @@ public sealed class FileService
     {
         var fileName = Path.GetFileName(filePath);
 
-        // Handle compound extension .nkit.iso explicitly first as it's the only compound one
-        if (fileName.EndsWith(".nkit.iso", StringComparison.OrdinalIgnoreCase))
+        // Handle compound extensions (.nkit.iso and .nkit.gcz) explicitly first
+        if (fileName.EndsWith(".nkit.iso", StringComparison.OrdinalIgnoreCase) ||
+            fileName.EndsWith(".nkit.gcz", StringComparison.OrdinalIgnoreCase))
         {
-            return fileName[..^9]; // Remove .nkit.iso
+            return fileName[..^9]; // Remove .nkit.iso / .nkit.gcz
         }
 
         // Handle other game image extensions from our supported list

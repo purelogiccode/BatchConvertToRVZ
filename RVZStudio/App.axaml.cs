@@ -216,11 +216,48 @@ public class App : Application
                 break;
             default:
                 Log.Fatal(ex, "Application.DispatcherUnhandledException (fatal)");
+                // Mark the exception as handled so the process does not terminate before the
+                // user can read the dialog; the application shuts down once it is dismissed.
+                e.Handled = true;
                 TryReportFatal("Application.DispatcherUnhandledException", ex);
-                _ = ShowMessageBoxSafelyAsync(
-                    $"A fatal error occurred and the application must close: {ex.Message}\n\nA bug report has been sent.",
-                    "Fatal Error");
+                _ = ShowFatalErrorAndShutdownAsync(ex.Message);
                 break;
+        }
+    }
+
+    /// <summary>
+    /// Shows the fatal error dialog and shuts the application down once the user dismisses it.
+    /// </summary>
+    private static async Task ShowFatalErrorAndShutdownAsync(string message)
+    {
+        try
+        {
+            await dialogs.MessageBox.ShowAsync(
+                null,
+                $"A fatal error occurred and the application must close: {message}\n\nA bug report has been sent.",
+                "Fatal Error");
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "Failed to show fatal error dialog");
+        }
+        finally
+        {
+            try
+            {
+                if (Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                {
+                    desktop.Shutdown();
+                }
+                else
+                {
+                    Environment.Exit(1);
+                }
+            }
+            catch
+            {
+                Environment.Exit(1);
+            }
         }
     }
 
@@ -255,11 +292,17 @@ public class App : Application
             if (BugReportServiceInstance == null) return;
 
             var message = $"Error Source: {source}";
-            var reportTask = BugReportServiceInstance.SendBugReportAsync(message, exception);
 
             if (isFatal)
             {
-                reportTask.Wait(TimeSpan.FromSeconds(5));
+                // Run the report off the UI thread so its await continuations are not blocked
+                // by the dispatcher thread that is waiting here.
+                Task.Run(() => BugReportServiceInstance.SendBugReportAsync(message, exception))
+                    .Wait(TimeSpan.FromSeconds(5));
+            }
+            else
+            {
+                _ = BugReportServiceInstance.SendBugReportAsync(message, exception);
             }
         }
         catch (Exception ex)

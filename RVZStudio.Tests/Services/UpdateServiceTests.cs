@@ -69,11 +69,9 @@ public class UpdateServiceTests
     [InlineData(null)]
     public void ParseVersionFromTagInvalidTagsReturnNull(string? tag)
     {
-        if (tag != null)
-        {
-            var result = UpdateService.ParseVersionFromTag(tag);
-            Assert.Null(result);
-        }
+        var result = UpdateService.ParseVersionFromTag(tag!);
+
+        Assert.Null(result);
     }
 
     [Theory]

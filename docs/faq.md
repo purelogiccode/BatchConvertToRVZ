@@ -16,9 +16,10 @@ Yes. It is open source under the GNU General Public License v3.0 (see [LICENSE.t
 
 ### Do I need Dolphin or DolphinTool installed separately?
 
-No. RVZStudio's primary engine (RVZSharp) is built in. Official release packages also bundle
-`DolphinTool` as an optional fallback (and `7za` as an archive fallback); RVZStudio looks for them
-in its own folder and works without them.
+No. RVZStudio's primary engine (RVZSharp) is built in. Release packages bundle `7za` as an archive
+fallback on every platform, and Windows packages also bundle `DolphinTool` as an optional
+conversion/verification fallback; RVZStudio looks for them in its own folder and works without
+them.
 
 ### Which input formats can I convert?
 

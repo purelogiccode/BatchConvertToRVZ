@@ -44,6 +44,11 @@ public partial class MainWindow : Window, IDisposable
 
     private const string GitHubApiUrl = "https://api.github.com/repos/purelogiccode/RVZStudio/releases/latest";
 
+    /// <summary>
+    /// Placeholder shown in a folder text box when dropped files come from several folders.
+    /// </summary>
+    internal const string MultipleLocationsPlaceholder = "(Multiple locations)";
+
     // Compression settings (now instance variables to allow user configuration)
     private string _rvzCompressionMethod = "zstd"; // Default compression method
     private int _rvzCompressionLevel = 5; // Default compression level
@@ -282,8 +287,13 @@ public partial class MainWindow : Window, IDisposable
         {
             if (_isClosing)
             {
-                // Allow the close to proceed — this is triggered by Application shutdown
-                // after a running operation was cancelled. Do NOT cancel here.
+                // While an operation is still running, keep blocking close attempts so the
+                // cancellation/cleanup path can finish. Once it has stopped, allow shutdown.
+                if (_runningTask is { IsCompleted: false })
+                {
+                    e.Cancel = true;
+                }
+
                 return;
             }
 
@@ -599,7 +609,7 @@ public partial class MainWindow : Window, IDisposable
             // Update compression settings from UI
             UpdateBlockSizeFromSelection();
 
-            var inputError = ValidateFolder(inputFolder, "input folder", true);
+            var inputError = IsMultipleLocations(inputFolder) ? null : ValidateFolder(inputFolder, "input folder", true);
             if (inputError != null)
             {
                 LogMessage($"Error: {inputError}");
@@ -767,6 +777,10 @@ public partial class MainWindow : Window, IDisposable
     {
         try
         {
+            // SelectionChanged also fires while the XAML tree is still being built, before the
+            // log panel and splitter fields are assigned.
+            if (LogViewerPanel is null || Splitter is null) return;
+
             var isExplorerTab = ReferenceEquals(MainTabControl.SelectedItem, ExplorerTabItem);
             LogViewerPanel.IsVisible = !isExplorerTab;
             Splitter.IsVisible = !isExplorerTab;
@@ -853,6 +867,16 @@ public partial class MainWindow : Window, IDisposable
             LogMessage($"Error opening folder picker: {ex.Message}");
             return null;
         }
+    }
+
+    /// <summary>
+    /// Returns true when the folder text box holds the multi-location placeholder that is set
+    /// after files from several folders are dropped onto a list. The explicitly selected files
+    /// are authoritative in that case, so folder validation must be skipped.
+    /// </summary>
+    internal static bool IsMultipleLocations(string? folderPath)
+    {
+        return string.Equals(folderPath, MultipleLocationsPlaceholder, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -989,14 +1013,14 @@ public partial class MainWindow : Window, IDisposable
                 _rvzCompressionMethod,
                 _rvzCompressionLevel,
                 _rvzBlockSize,
-                (processed, total, fileName) =>
+                (processed, total, filePath) =>
                 {
-                    UpdateProgressDisplay(processed, total, fileName, "Converting");
+                    UpdateProgressDisplay(processed, total, Path.GetFileName(filePath), "Converting");
                     UpdateOverallProgress();
                     UpdateStatsDisplay();
                     UpdateProcessingTimeDisplay();
                     // Track bytes for speed calculation - find file size from conversion files list
-                    var fileItem = _conversionFiles.FirstOrDefault(f => f.FileName == fileName);
+                    var fileItem = _conversionFiles.FirstOrDefault(f => f.FullPath == filePath);
                     if (fileItem != null)
                     {
                         AddProcessedBytes(fileItem.FileSize);
@@ -1509,7 +1533,7 @@ public partial class MainWindow : Window, IDisposable
             _moveFailedFiles = MoveFailedCheckBox.IsChecked ?? false;
             _moveSuccessFiles = MoveSuccessCheckBox.IsChecked ?? false;
 
-            var verifyError = ValidateFolder(verifyFolder, "verification folder", true);
+            var verifyError = IsMultipleLocations(verifyFolder) ? null : ValidateFolder(verifyFolder, "verification folder", true);
             if (verifyError != null)
             {
                 LogMessage($"Error: {verifyError}");
@@ -1648,14 +1672,14 @@ public partial class MainWindow : Window, IDisposable
                 files,
                 moveFailed,
                 moveSuccess,
-                (processed, total, fileName) =>
+                (processed, total, filePath) =>
                 {
-                    UpdateProgressDisplay(processed, total, fileName, "Verifying");
+                    UpdateProgressDisplay(processed, total, Path.GetFileName(filePath), "Verifying");
                     UpdateOverallProgress();
                     UpdateStatsDisplay();
                     UpdateProcessingTimeDisplay();
                     // Track bytes for speed calculation - find file size from verification files list
-                    var fileItem = _verificationFiles.FirstOrDefault(f => f.FileName == fileName);
+                    var fileItem = _verificationFiles.FirstOrDefault(f => f.FullPath == filePath);
                     if (fileItem != null)
                     {
                         AddProcessedBytes(fileItem.FileSize);
@@ -2171,7 +2195,7 @@ public partial class MainWindow : Window, IDisposable
             var outputFormat = (ExtractOutputFormatComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString()?.ToLowerInvariant()
                                ?? "iso";
 
-            var inputError = ValidateFolder(inputFolder, "input folder", true);
+            var inputError = IsMultipleLocations(inputFolder) ? null : ValidateFolder(inputFolder, "input folder", true);
             if (inputError != null)
             {
                 LogMessage($"Error: {inputError}");
@@ -2339,14 +2363,14 @@ public partial class MainWindow : Window, IDisposable
                 outputFolder,
                 deleteFiles,
                 outputFormat,
-                (processed, total, fileName) =>
+                (processed, total, filePath) =>
                 {
-                    UpdateProgressDisplay(processed, total, fileName, "Extracting");
+                    UpdateProgressDisplay(processed, total, Path.GetFileName(filePath), "Extracting");
                     UpdateOverallProgress();
                     UpdateStatsDisplay();
                     UpdateProcessingTimeDisplay();
                     // Track bytes for speed calculation - find file size from extraction files list
-                    var fileItem = _extractionFiles.FirstOrDefault(f => f.FileName == fileName);
+                    var fileItem = _extractionFiles.FirstOrDefault(f => f.FullPath == filePath);
                     if (fileItem != null)
                     {
                         AddProcessedBytes(fileItem.FileSize);
@@ -2636,7 +2660,7 @@ public partial class MainWindow : Window, IDisposable
                 _ => null
             };
 
-            textBox?.SetCurrentValue(TextBox.TextProperty, commonDirectory ?? "(Multiple locations)");
+            textBox?.SetCurrentValue(TextBox.TextProperty, commonDirectory ?? MultipleLocationsPlaceholder);
 
             // Add files to the list (skip duplicates)
             var addedCount = 0;
@@ -2881,7 +2905,7 @@ public partial class MainWindow : Window, IDisposable
                 var folder = folders.Count > 0 ? folders[0].TryGetLocalPath() : null;
                 if (string.IsNullOrEmpty(folder)) return;
 
-                destination = Path.Combine(folder, node.Name);
+                destination = Path.Combine(folder, DiscExplorerSession.SanitizeName(node.Name));
             }
             else
             {

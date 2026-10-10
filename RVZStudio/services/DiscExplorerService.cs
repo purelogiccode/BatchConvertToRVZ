@@ -328,7 +328,7 @@ public sealed class DiscExplorerSession : IDisposable
     /// Replaces characters that cannot appear in a local file name (and path separators) so
     /// image-internal names cannot traverse outside the chosen destination.
     /// </summary>
-    private static string SanitizeName(string name)
+    internal static string SanitizeName(string name)
     {
         var sanitized = name.Replace('/', '_').Replace('\\', '_');
         foreach (var invalid in Path.GetInvalidFileNameChars())

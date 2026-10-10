@@ -188,7 +188,7 @@ public class ConversionServiceTests : IDisposable
             "dolphinTool", [archivePath], _tempDir, false, "zstd", 5, 131072, static (_, _, _) => { }, static _ => { },
             static _ => { }, CancellationToken.None);
 
-        Assert.Contains(_logMessages, static m => m.Contains("File may be corrupt") || m.Contains("7za"));
+        Assert.Contains(_logMessages, static m => m.Contains("File may be corrupt"));
     }
 
     [Fact]
@@ -414,7 +414,7 @@ public class ConversionServiceTests : IDisposable
         var entry = Assert.Single(progress);
         Assert.Equal(1, entry.Processed);
         Assert.Equal(1, entry.Total);
-        Assert.Equal("game.rvz", entry.Name);
+        Assert.Equal(inputPath, entry.Name);
     }
 
     [Fact]

@@ -16,6 +16,7 @@ images back to ISO, WBFS, GCZ, WIA, CISO or TGC. It runs on **Windows, Linux and
 | [Settings Reference](settings-reference.md) | Compression methods, levels, block sizes and all options. |
 | [Troubleshooting](troubleshooting.md) | Solutions for common problems and how to collect diagnostics. |
 | [FAQ](faq.md) | Short answers to frequently asked questions. |
+| [What's New](WhatsNew.md) | Release highlights and changes for the current version. |
 | [Architecture](architecture.md) | Internal design, services, data flow and platform integration. |
 | [Building](building.md) | Building, testing, publishing and the CI/CD pipelines. |
 | [Contributing](contributing.md) | How to report issues and submit changes. |

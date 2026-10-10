@@ -5,7 +5,7 @@ This page lists the most common problems and how to solve them. If a problem per
 
 ## The action buttons are disabled / "critical file(s) are missing"
 
-RVZStudio requires the platform-specific helper executables next to the application binary.
+RVZStudio looks for the platform-specific helper executables next to the application binary.
 
 1. Make sure you extracted **all** files from the release archive into the same folder.
 2. Check the expected file names for your platform:
@@ -13,7 +13,10 @@ RVZStudio requires the platform-specific helper executables next to the applicat
    | Platform | x64 | ARM64 |
    |----------|-----|-------|
    | Windows | `DolphinTool.exe`, `7za.exe` | `DolphinTool_arm64.exe`, `7za_arm64.exe` |
-   | Linux / macOS | `DolphinTool`, `7za` | `DolphinTool_arm64`, `7za_arm64` |
+   | Linux / macOS | `7za` | `7za_arm64` |
+
+   `DolphinTool` is optional on Linux/macOS: the native RVZSharp engine handles conversion and
+   verification without it, and `7za` ships with every release package.
 
 3. If you launched the application from a temporary extraction folder (for example from inside a
    WinRAR/ZIP preview), the folder may have been deleted while the application was running.
@@ -25,7 +28,7 @@ ZIP archives do not always preserve the executable bit. RVZStudio tries to set i
 but you can do it manually:
 
 ```bash
-chmod +x RVZStudio DolphinTool 7za
+chmod +x RVZStudio 7za*
 ```
 
 ## macOS: the app cannot be opened (Gatekeeper)

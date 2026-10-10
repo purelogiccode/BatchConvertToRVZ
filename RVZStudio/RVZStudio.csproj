@@ -6,8 +6,8 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <ApplicationIcon>icon\icon.ico</ApplicationIcon>
-        <AssemblyVersion>2.4.1</AssemblyVersion>
-        <FileVersion>2.4.1</FileVersion>
+        <AssemblyVersion>2.5.0</AssemblyVersion>
+        <FileVersion>2.5.0</FileVersion>
         <IsPackable>false</IsPackable>
         <NeutralLanguage>en-US</NeutralLanguage>
         <AssemblyName>RVZStudio</AssemblyName>
@@ -33,7 +33,6 @@
         <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
         <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
         <PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.2" />
-        <PackageReference Include="Avalonia.Diagnostics" Version="11.3.22" Condition="'$(Configuration)' == 'Debug'" />
         <PackageReference Include="Roslynator.Analyzers" Version="5.0.1">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -48,14 +47,28 @@
         </PackageReference>
     </ItemGroup>
 
-    <ItemGroup>
+    <!-- DolphinTool is bundled for Windows only; the native RVZSharp engine is the primary
+         engine on every platform, and Linux/macOS users can place their own DolphinTool next
+         to the application to enable the fallback. -->
+    <ItemGroup Condition="'$(RuntimeIdentifier)' == 'win-x64' Or ('$(RuntimeIdentifier)' == '' And $([MSBuild]::IsOSPlatform('Windows')))">
         <None Update="DolphinTool.exe">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
             <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
         </None>
+    </ItemGroup>
+    <ItemGroup Condition="'$(RuntimeIdentifier)' == 'win-arm64' Or ('$(RuntimeIdentifier)' == '' And $([MSBuild]::IsOSPlatform('Windows')))">
         <None Update="DolphinTool_arm64.exe">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
             <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+        </None>
+    </ItemGroup>
+
+    <!-- The 7-Zip license must accompany the redistributed 7za binary. -->
+    <ItemGroup>
+        <None Update="tools\LICENSE-7zip.txt">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+            <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+            <TargetPath>LICENSE-7zip.txt</TargetPath>
         </None>
     </ItemGroup>
 
@@ -104,5 +117,11 @@
         </None>
     </ItemGroup>
 
+    <!-- Native package PDBs (SkiaSharp/HarfBuzz) are not needed in release bundles. -->
+    <Target Name="RemoveNativePdbsFromPublish" AfterTargets="ComputeFilesToPublish">
+        <ItemGroup>
+            <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.pdb'" />
+        </ItemGroup>
+    </Target>
 
 </Project>

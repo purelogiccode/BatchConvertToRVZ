@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page.title | default: site.title }}</title>
+  <meta name="description" content="{{ site.description }}">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      color: #1f2328;
+      background: #ffffff;
+      line-height: 1.55;
+    }
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar {
+      flex: 0 0 250px;
+      width: 250px;
+      background: #0d1117;
+      color: #c9d1d9;
+      padding: 22px 16px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    .sidebar .brand { font-size: 19px; font-weight: 700; margin: 0 0 16px 10px; }
+    .sidebar .brand a { color: #ffffff; text-decoration: none; }
+    .sidebar a {
+      display: block;
+      color: #c9d1d9;
+      text-decoration: none;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .sidebar a:hover { background: #161b22; color: #ffffff; }
+    .sidebar .section { margin: 18px 10px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #6e7681; }
+    .content { flex: 1; min-width: 0; padding: 32px 44px; max-width: 920px; }
+    .content img { max-width: 100%; height: auto; }
+    .content pre { overflow-x: auto; background: #f6f8fa; padding: 12px 14px; border-radius: 6px; }
+    .content code { background: #f6f8fa; padding: 2px 5px; border-radius: 4px; font-size: 85%; }
+    .content pre code { background: transparent; padding: 0; }
+    .content table { border-collapse: collapse; margin: 12px 0; }
+    .content th, .content td { border: 1px solid #d0d7de; padding: 6px 12px; }
+    .content h1, .content h2 { border-bottom: 1px solid #d8dee4; padding-bottom: 6px; }
+    @media (max-width: 800px) {
+      .layout { flex-direction: column; }
+      .sidebar { width: 100%; flex: none; height: auto; position: static; }
+      .content { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <nav class="sidebar">
+      <div class="brand"><a href="{{ '/' | relative_url }}">RVZStudio</a></div>
+      <div class="section">Documentation</div>
+      <a href="{{ '/getting-started.html' | relative_url }}">Getting Started</a>
+      <a href="{{ '/user-guide.html' | relative_url }}">User Guide</a>
+      <a href="{{ '/settings-reference.html' | relative_url }}">Settings Reference</a>
+      <a href="{{ '/troubleshooting.html' | relative_url }}">Troubleshooting</a>
+      <a href="{{ '/faq.html' | relative_url }}">FAQ</a>
+      <a href="{{ '/WhatsNew.html' | relative_url }}">What's New</a>
+      <div class="section">Development</div>
+      <a href="{{ '/architecture.html' | relative_url }}">Architecture</a>
+      <a href="{{ '/building.html' | relative_url }}">Building</a>
+      <a href="{{ '/contributing.html' | relative_url }}">Contributing</a>
+    </nav>
+    <main class="content">
+      {{ content }}
+    </main>
+  </div>
+</body>
+</html>

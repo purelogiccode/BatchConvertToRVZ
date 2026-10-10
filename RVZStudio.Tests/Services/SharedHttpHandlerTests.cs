@@ -31,14 +31,10 @@ public class SharedHttpHandlerTests
     }
 
     [Fact]
-    public void DisposeCanBeCalledMultipleTimesWithoutException()
+    public void InstanceUsesPooledConnections()
     {
-        // First call may or may not dispose depending on if Instance was already accessed
-        SharedHttpHandler.Dispose();
+        var instance = SharedHttpHandler.Instance;
 
-        // Second call should not throw
-        var exception = Record.Exception(static () => SharedHttpHandler.Dispose());
-
-        Assert.Null(exception);
+        Assert.True(instance.PooledConnectionLifetime > TimeSpan.Zero);
     }
 }

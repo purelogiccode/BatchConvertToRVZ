@@ -16,6 +16,10 @@ if ([string]::IsNullOrWhiteSpace($version)) { $version = "0.0.0" }
 
 foreach ($rid in $Rids) {
     $out = Join-Path $PSScriptRoot "publish\$rid"
+
+    # Remove any stale output so old files cannot leak into the archive.
+    if (Test-Path $out) { Remove-Item $out -Recurse -Force }
+
     $publishArgs = @("publish", $project, "-c", $Configuration, "-r", $rid, "-o", $out)
 
     if ($FrameworkDependent) {

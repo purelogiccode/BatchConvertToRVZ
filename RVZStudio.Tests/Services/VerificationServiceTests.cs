@@ -190,7 +190,9 @@ public class VerificationServiceTests : IDisposable
             @"C:\nonexistent_path\fake_dolphin.exe", [filePath], true, true,
             static (_, _, _) => { }, static _ => { }, static _ => { }, CancellationToken.None);
 
-        Assert.Contains(_logMessages, static m => m.Contains("Verifying:"));
+        // The file cannot be verified (not a real RVZ, no DolphinTool), so it must be moved to _Failed.
+        Assert.False(File.Exists(filePath));
+        Assert.True(File.Exists(Path.Combine(_tempDir, "_Failed", "test.rvz")));
     }
 
     [Fact]
@@ -213,6 +215,6 @@ public class VerificationServiceTests : IDisposable
             static _ => { }, static _ => { }, CancellationToken.None);
 
         Assert.True(progressReceived);
-        Assert.Equal("test.rvz", lastFileName);
+        Assert.Equal(filePath, lastFileName);
     }
 }

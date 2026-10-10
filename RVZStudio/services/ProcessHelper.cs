@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace RVZStudio.services;
@@ -74,6 +75,46 @@ internal static class ProcessHelper
         var extension = OperatingSystem.IsWindows() ? ".exe" : string.Empty;
 
         return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"7za{suffix}{extension}");
+    }
+
+    /// <summary>
+    /// Best-effort termination of a child process, including its descendants. Used when an
+    /// operation is cancelled while a helper process is still running.
+    /// </summary>
+    internal static void TryKillProcess(Process? process)
+    {
+        try
+        {
+            if (process is { HasExited: false })
+            {
+                process.Kill(true);
+            }
+        }
+        catch
+        {
+            // The process may not have started or may have exited already.
+        }
+    }
+
+    /// <summary>
+    /// Best-effort recursive deletion of a temporary directory.
+    /// </summary>
+    internal static void TryDeleteDirectory(string? path)
+    {
+        if (string.IsNullOrEmpty(path) || !Directory.Exists(path))
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.Delete(path, true);
+        }
+        catch (Exception ex)
+        {
+            // Cleanup is best-effort only; log at Debug to avoid bug report noise.
+            Serilog.Log.Debug(ex, "Failed to delete temporary directory {Path}", path);
+        }
     }
 
     /// <summary>

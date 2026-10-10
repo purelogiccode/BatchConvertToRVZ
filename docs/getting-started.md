@@ -9,12 +9,13 @@ This page covers everything you need to install RVZStudio and convert your first
 | Operating system | Windows 10 or later, a modern 64-bit Linux distribution, or macOS 11 or later |
 | Architecture | x64 or ARM64 |
 | Runtime | [.NET 10.0 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) — **not required** for the self-contained release builds |
-| Helper tools | Optional: `DolphinTool` (fallback engine) and `7za` (archive fallback), bundled with releases |
+| Helper tools | Optional: `7za` (archive fallback, all platforms) and `DolphinTool` (fallback engine, Windows releases) |
 
 > RVZStudio's primary engine is the built-in **RVZSharp** library (pure managed code). **DolphinTool**
 > from the [Dolphin Emulator project](https://dolphin-emu.org/) is used as a fallback
 > conversion/verification engine when available, and **7za** (7-Zip) is the fallback archive
-> extractor. Both are shipped with the official release packages.
+> extractor. `7za` ships with every release package; `DolphinTool` ships with the Windows packages
+> and can be added manually on Linux/macOS.
 
 ### Helper executable names
 
@@ -23,7 +24,7 @@ RVZStudio locates the helper tools next to the application binary. The expected 
 | Platform | x64 | ARM64 |
 |----------|-----|-------|
 | Windows | `DolphinTool.exe`, `7za.exe` | `DolphinTool_arm64.exe`, `7za_arm64.exe` |
-| Linux / macOS | `DolphinTool`, `7za` | `DolphinTool_arm64`, `7za_arm64` |
+| Linux / macOS | `7za` (optional `DolphinTool`) | `7za_arm64` (optional `DolphinTool_arm64`) |
 
 ## Installation
 
@@ -42,9 +43,9 @@ RVZStudio locates the helper tools next to the application binary. The expected 
 
    ```bash
    mkdir -p ~/apps/RVZStudio
-   unzip release_2.4.1_linux-x64.zip -d ~/apps/RVZStudio
+   unzip release_2.5.0_linux-x64.zip -d ~/apps/RVZStudio
    cd ~/apps/RVZStudio
-   chmod +x RVZStudio DolphinTool 7za
+   chmod +x RVZStudio 7za*
    ./RVZStudio
    ```
 
@@ -57,9 +58,9 @@ RVZStudio locates the helper tools next to the application binary. The expected 
 
    ```bash
    mkdir -p ~/Applications/RVZStudio
-   unzip release_2.4.1_osx-arm64.zip -d ~/Applications/RVZStudio
+   unzip release_2.5.0_osx-arm64.zip -d ~/Applications/RVZStudio
    cd ~/Applications/RVZStudio
-   chmod +x RVZStudio DolphinTool 7za
+   chmod +x RVZStudio 7za*
    ./RVZStudio
    ```
 

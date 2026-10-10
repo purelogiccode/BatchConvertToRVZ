@@ -37,7 +37,7 @@ public class ConversionService
     /// <param name="compressionMethod">The RVZ compression method (zstd, bzip2, lzma or lzma2).</param>
     /// <param name="compressionLevel">The compression level.</param>
     /// <param name="blockSize">The RVZ block size in bytes.</param>
-    /// <param name="updateProgress">Receives (processed, total, currentFileName) after each file.</param>
+    /// <param name="updateProgress">Receives (processed, total, currentFilePath) after each file.</param>
     /// <param name="incrementSuccess">Called with the number of newly succeeded files.</param>
     /// <param name="incrementFailure">Called with the number of newly failed files.</param>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
@@ -110,7 +110,7 @@ public class ConversionService
                 }
 
                 filesProcessedCount++;
-                updateProgress(filesProcessedCount, totalFilesToProcess, fileName);
+                updateProgress(filesProcessedCount, totalFilesToProcess, inputFile);
             }
         }
         catch (OperationCanceledException)
@@ -412,9 +412,10 @@ public class ConversionService
 
             process.EnableRaisingEvents = true;
 
-            var outputChannel = Channel.CreateBounded<string>(new BoundedChannelOptions(1000)
+            var outputChannel = Channel.CreateUnbounded<string>(new UnboundedChannelOptions
             {
-                FullMode = BoundedChannelFullMode.Wait
+                SingleReader = true,
+                SingleWriter = false
             });
             var outputCompleted = new TaskCompletionSource<bool>();
             var errorCompleted = new TaskCompletionSource<bool>();
@@ -533,6 +534,7 @@ public class ConversionService
 
             if (entry == null)
             {
+                ProcessHelper.TryDeleteDirectory(tempDir);
                 var archiveName = Path.GetFileName(archivePath);
                 return (false, string.Empty, string.Empty, $"No supported disc image found inside {archiveName}.",
                     false);
@@ -574,6 +576,7 @@ public class ConversionService
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            ProcessHelper.TryDeleteDirectory(tempDir);
             throw;
         }
         catch (Exception ex)
@@ -591,17 +594,7 @@ public class ConversionService
                     $"SharpCompress extraction failed for {archiveName}: {ex.Message}, falling back to 7za.exe...");
             }
 
-            if (!string.IsNullOrEmpty(tempDir) && Directory.Exists(tempDir))
-            {
-                try
-                {
-                    Directory.Delete(tempDir, true);
-                }
-                catch
-                {
-                    // Ignore cleanup errors
-                }
-            }
+            ProcessHelper.TryDeleteDirectory(tempDir);
 
             var sevenZipResult = await ExtractWith7ZipAsync(archivePath, cancellationToken);
             if (sevenZipResult.Success)
@@ -621,12 +614,10 @@ public class ConversionService
         ExtractWith7ZipAsync(string archivePath, CancellationToken cancellationToken)
     {
         var tempDir = string.Empty;
+        Process? process = null;
 
         try
         {
-            tempDir = Path.Combine(Path.GetTempPath(), "RVZStudio_7Zip_" + Path.GetRandomFileName());
-            Directory.CreateDirectory(tempDir);
-
             var sevenZipPath = ProcessHelper.Get7ZipExecutablePath();
             if (!File.Exists(sevenZipPath))
             {
@@ -636,9 +627,12 @@ public class ConversionService
 
             ProcessHelper.EnsureExecutable(sevenZipPath);
 
+            tempDir = Path.Combine(Path.GetTempPath(), "RVZStudio_7Zip_" + Path.GetRandomFileName());
+            Directory.CreateDirectory(tempDir);
+
             _logger.Information("{Message:l}", $"Extracting with 7za.exe to: {tempDir}");
 
-            using var process = new Process();
+            process = new Process();
             process.StartInfo = new ProcessStartInfo
             {
                 FileName = sevenZipPath,
@@ -667,11 +661,16 @@ public class ConversionService
 
             await process.WaitForExitAsync(cancellationToken);
 
+            // WaitForExitAsync does not flush the asynchronous output handlers; the synchronous
+            // wait guarantees the captured output is complete.
+            process.WaitForExit();
+
             if (process.ExitCode != 0)
             {
                 var errorOutput = errorBuilder.ToString();
                 _logger.Information("{Message:l}",
                     $"7za.exe extraction failed with exit code {process.ExitCode}: {errorOutput}");
+                ProcessHelper.TryDeleteDirectory(tempDir);
                 return (false, string.Empty, string.Empty, $"7za.exe extraction failed: {errorOutput}", false);
             }
 
@@ -688,6 +687,7 @@ public class ConversionService
             if (extractedFile is null)
             {
                 _logger.Information("{Message:l}", "No supported disc image found in 7za.exe extraction output.");
+                ProcessHelper.TryDeleteDirectory(tempDir);
                 return (false, string.Empty, string.Empty, "No supported disc image found after 7za.exe extraction.",
                     false);
             }
@@ -708,25 +708,20 @@ public class ConversionService
         }
         catch (OperationCanceledException)
         {
+            ProcessHelper.TryKillProcess(process);
+            ProcessHelper.TryDeleteDirectory(tempDir);
             throw;
         }
         catch (Exception ex)
         {
+            ProcessHelper.TryKillProcess(process);
             _logger.Information("{Message:l}", $"7za.exe extraction error: {ex.Message}");
-
-            if (!string.IsNullOrEmpty(tempDir) && Directory.Exists(tempDir))
-            {
-                try
-                {
-                    Directory.Delete(tempDir, true);
-                }
-                catch
-                {
-                    // Ignore cleanup errors
-                }
-            }
-
+            ProcessHelper.TryDeleteDirectory(tempDir);
             return (false, string.Empty, string.Empty, $"7za.exe extraction error: {ex.Message}", false);
+        }
+        finally
+        {
+            process?.Dispose();
         }
     }
 

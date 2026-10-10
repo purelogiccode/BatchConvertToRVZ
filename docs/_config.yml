@@ -4,3 +4,8 @@ markdown: GFM
 plugins:
   - jekyll-relative-links
   - jekyll-readme-index
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default

@@ -24,9 +24,15 @@ Full documentation lives in the [`docs/`](docs/README.md) folder:
 | [Settings Reference](docs/settings-reference.md) | Compression methods, levels, block sizes and options. |
 | [Troubleshooting](docs/troubleshooting.md) | Solutions for common problems. |
 | [FAQ](docs/faq.md) | Frequently asked questions. |
+| [What's New](docs/WhatsNew.md) | Release highlights and changes. |
 | [Architecture](docs/architecture.md) | Internal design and data flow. |
 | [Building](docs/building.md) | Build, test, publish and CI/CD. |
 | [Contributing](docs/contributing.md) | Issue reporting and pull request workflow. |
+
+## What's New
+
+**Version 2.5.0** is the first cross-platform release, rebuilt on Avalonia UI. See the
+[What's New](docs/WhatsNew.md) page for the full list of changes.
 
 ## Overview
 
@@ -75,7 +81,7 @@ The application ships for **Windows, Linux and macOS** on both **x64 and ARM64**
 - **Native RVZ Engine**: Built-in `RVZSharp` library encodes, decodes and verifies disc images natively (100% managed codecs), with automatic fallback to `DolphinTool` whenever the library fails or DolphinTool is required.
 - **Library Failure Reporting**: Unexpected `RVZSharp` failures are automatically reported to the Bug Report API so the library can be improved over time; expected user-file failures are logged without bug-report noise.
 - **Asynchronous Architecture**: Fully async/await implementation to keep the UI responsive during intensive I/O and processing.
-- **Cross-Architecture Support**: Native support for both x64 and ARM64 Windows systems.
+- **Cross-Architecture Support**: Native support for x64 and ARM64 on Windows, Linux and macOS.
 - **Structured Logging**: Serilog-based logging with rolling daily log files, on-screen log viewer, and automatic bug reporting via custom sinks.
 - **Global Error Reporting**: Automatic bug reporting to developers with comprehensive error details.
 - **Process Error Suppression**: Prevents Windows error dialogs from child processes (DolphinTool) from blocking batch operations.
@@ -161,9 +167,9 @@ RVZ integrity:
 
 - **Runtime**: [.NET 10.0 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (not required for the self-contained release builds)
 - **Operating System**: Windows 10 or later, a modern Linux distribution, or macOS (x64 or ARM64)
-- **Dependencies**: The built-in RVZSharp engine requires no external tools. Release packages also bundle optional fallbacks:
+- **Dependencies**: The built-in RVZSharp engine requires no external tools. Release packages bundle the 7-Zip `7za` console tool on every platform and the optional DolphinTool fallbacks on Windows:
   - Windows: `DolphinTool.exe` / `DolphinTool_arm64.exe` and `7za.exe` / `7za_arm64.exe`
-  - Linux/macOS: `DolphinTool` / `DolphinTool_arm64` and `7za` / `7za_arm64`
+  - Linux/macOS: `7za` / `7za_arm64` (place a `DolphinTool` / `DolphinTool_arm64` binary next to the application to enable the fallback)
 
 ## Installation
 

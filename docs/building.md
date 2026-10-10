@@ -103,6 +103,26 @@ dotnet publish RVZStudio/RVZStudio.csproj \
 Supported runtime identifiers: `win-x64`, `win-arm64`, `linux-x64`, `linux-arm64`, `osx-x64`,
 `osx-arm64`.
 
+### Framework-dependent bundles
+
+For a smaller package that requires the .NET 10 runtime on the target machine, publish
+framework-dependent single-file builds and add the license, readme and What's New files next to the
+binary:
+
+```powershell
+dotnet publish RVZStudio/RVZStudio.csproj -c Release -r win-x64 `
+    --self-contained false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+    -o RVZStudio/bin/Release/release_2.5.0_win-x64
+
+Copy-Item LICENSE.txt, ReadMe.md RVZStudio/bin/Release/release_2.5.0_win-x64
+Copy-Item docs/WhatsNew.md RVZStudio/bin/Release/release_2.5.0_win-x64/WhatsNew.md
+Compress-Archive -Path RVZStudio/bin/Release/release_2.5.0_win-x64/* `
+    -DestinationPath RVZStudio/bin/Release/release_2.5.0_win-x64.zip
+```
+
+The bundle name follows the release convention `release_<version>_<rid>.zip`, and the `7za`
+archive fallback (plus `DolphinTool` on Windows) is copied automatically by the build.
+
 ## Continuous integration
 
 Three GitHub Actions workflows live in `.github/workflows`:

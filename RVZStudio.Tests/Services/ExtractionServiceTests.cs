@@ -221,7 +221,7 @@ public class ExtractionServiceTests : IDisposable
             "dolphinTool", [archivePath], _tempDir, false, "iso", static (_, _, _) => { }, static _ => { },
             static _ => { }, CancellationToken.None);
 
-        Assert.Contains(_logMessages, static m => m.Contains("File may be corrupt") || m.Contains("7za"));
+        Assert.Contains(_logMessages, static m => m.Contains("File may be corrupt"));
     }
 
     [Fact]
@@ -419,7 +419,7 @@ public class ExtractionServiceTests : IDisposable
         var entry = Assert.Single(progress);
         Assert.Equal(1, entry.Processed);
         Assert.Equal(1, entry.Total);
-        Assert.Equal("game.rvz", entry.Name);
+        Assert.Equal(rvzPath, entry.Name);
     }
 
     private string CreateValidRvz(string fileName)
