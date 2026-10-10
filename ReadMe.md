@@ -23,6 +23,7 @@ A cross-platform desktop utility for batch converting GameCube and Wii disc imag
 ![RVZStudio](screenshot.png)
 ![RVZStudio](screenshot2.png)
 ![RVZStudio](screenshot3.png)
+![RVZStudio](screenshot4.png)
 
 ## Documentation
 
